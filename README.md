@@ -1,4 +1,4 @@
-# ubc-prof-pilot
+# UBC Professor Pilot
 
 Prof Pilot is a full-stack web application that lets UBC students explore professors and courses using real-time data.
 
