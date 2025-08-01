@@ -1,6 +1,6 @@
 # ubc-prof-pilot
 
-Prof Pilot is a full-stack web application that let's UBC students explore professors and courses using real-time data.
+Prof Pilot is a full-stack web application that lets UBC students explore professors and courses using real-time data.
 
 It integrates:
 - RateMyProf review summaries
