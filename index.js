@@ -44,13 +44,12 @@ app.get('/professor', function (req, res) {
             
             res.json({
                 URL: urlResponse.URL,
-                first_name: urlResponse.fname,
-                last_name: urlResponse.lname,
+                first_name: urlResponse.lname,  // First/last names are swapped
+                last_name: urlResponse.fname,
                 university: urlResponse.university,
                 would_take_again: data.percentage,
                 difficulty: data.difficulty,
-                overall_quality: data.quality,
-                most_recent_comment: data.mostRecentComment
+                overall_quality: data.quality
             });
         });
     });

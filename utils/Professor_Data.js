@@ -26,7 +26,6 @@ function getProfData(profURL, callback) {
             var wouldTakeAgain = "[class*='TeacherFeedback'] div:nth-child(1) [class*='FeedbackNumber']"
             var difficulty = "[class*='TeacherFeedback'] div:nth-child(2) [class*='FeedbackNumber']"
             var overallQuality = "[class*='RatingValue'] [class*='Numerator']"
-            var mostRecentComment = "#ratingsList li:first-child [class*='Comments']"
 
             // JQuery Function
             const $ = cheerio.load(html); // creates Jquery function to parse through html
@@ -41,9 +40,6 @@ function getProfData(profURL, callback) {
             
             let quality = $(overallQuality).html() || $(overallQuality).text();
             quality = quality || "N/A";
-            
-            let mostRecentCommentHtml = $(mostRecentComment).html() || $(mostRecentComment).text();
-            mostRecentCommentHtml = mostRecentCommentHtml || "No comments available";
             
             // Try one more approach - look for any elements with text that might contain these values
             if (percentage === "N/A") {
@@ -104,13 +100,10 @@ function getProfData(profURL, callback) {
             percentage = nodeCleanText(percentage);
             difficultyDecimal = nodeCleanText(difficultyDecimal);
             quality = nodeCleanText(quality);
-            mostRecentCommentHtml = nodeCleanText(mostRecentCommentHtml);
-            
             // Log the values for debugging
             console.log('Would Take Again:', percentage);
             console.log('Difficulty:', difficultyDecimal);
             console.log('Quality:', quality);
-            console.log('Most Recent Comment:', mostRecentCommentHtml ? 'Found' : 'Not found');
             
             // If all values are N/A, log some of the HTML structure for debugging
             if (percentage === "N/A" && difficultyDecimal === "N/A" && quality === "N/A") {
@@ -128,8 +121,7 @@ function getProfData(profURL, callback) {
             callback({
                 percentage: percentage,
                 difficulty: difficultyDecimal,
-                quality: quality,
-                mostRecentComment: mostRecentCommentHtml
+                quality: quality
             })
 
             
