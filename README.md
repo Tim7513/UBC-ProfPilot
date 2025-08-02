@@ -8,7 +8,7 @@ It integrates:
 
 
 Core Features:
-- Search by course: View professors who have thought the course, with detailed RateMyProf reviews and GPA stats.
+- Search by course: View professors who have taught the course, with detailed RateMyProf reviews and GPA stats.
 - Search by professor: View courses they've taught, RateMyProf rating summaries, tag distribution, and GPA data.
 - AI Summarization: Condenses dozens of reviews into clear, meaningful insights.
 - Tag Analytics: Professors can be described as "strict", "organized" "easy A"
