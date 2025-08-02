@@ -50,8 +50,13 @@ function searchForProf(fname, lname, university, callback) {
                 const nameElement = card.find("div.CardName__StyledCardName-sc-1gyrgim-0");
                 const name = nameElement.text().trim().toLowerCase();
                 
-                const schoolElement = card.find("div.CardSchool__Department-sc-19lmz2k-0");
-                const universityText = schoolElement.text().toLowerCase();
+                // Get the department information
+                const departmentElement = card.find("div.CardSchool__Department-sc-19lmz2k-0");
+                const departmentText = departmentElement.text().toLowerCase();
+                
+                // Get the university information
+                const universityElement = card.find("div.CardSchool__School-sc-19lmz2k-1");
+                const universityText = universityElement.text().toLowerCase();
                 
                 const profPath = card.attr('href');
                 
@@ -62,10 +67,10 @@ function searchForProf(fname, lname, university, callback) {
                 const lastName = nameParts[0];
                 const firstName = nameParts.slice(1).join(' ');
                 
-                // Check if the professor's name and university match
+                // Check if the professor's name and university/department match
                 if ((fname === firstName || name.includes(fname)) && 
                     (lname === lastName || name.includes(lname)) &&
-                    universityText.includes(university)) {
+                    (universityText.includes(university) || departmentText.includes(university))) {
                     
                     const profURL = `https://www.ratemyprofessors.com${profPath}`;
                     console.log(`Found matching professor: ${name} at ${universityText}`);
@@ -76,7 +81,7 @@ function searchForProf(fname, lname, university, callback) {
                         URL: profURL,
                         fname: firstName,
                         lname: lastName,
-                        university: universityText.split(',')[0].trim()
+                        university: universityText.trim()
                     });
                 }
             });

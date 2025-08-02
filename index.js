@@ -49,7 +49,7 @@ app.get('/professor', function (req, res) {
                 university: urlResponse.university,
                 would_take_again: data.percentage,
                 difficulty: data.difficulty,
-                overall_quality: data.quality ? data.quality + "/5" : null,
+                overall_quality: data.quality,
                 most_recent_comment: data.mostRecentComment
             });
         });

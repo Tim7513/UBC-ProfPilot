@@ -22,22 +22,108 @@ function getProfData(profURL, callback) {
         if (response.status === 200) { // valid url
             const html = response.data;
             
-            // CSS Selector
-            var wouldTakeAgain = "#root > div > div > div.PageWrapper__StyledPageWrapper-sc-3p8f0h-0.iwLXsH > div.TeacherRatingsPage__TeacherBlock-a57owa-1.gmNsKR > div.TeacherInfo__StyledTeacher-ti1fio-1.fIlNyU > div.TeacherFeedback__StyledTeacherFeedback-gzhlj7-0.jCDePN > div:nth-child(1) > div.FeedbackItem__FeedbackNumber-uof32n-1.bGrrmf"
-            var difficulty = "#root > div > div > div.PageWrapper__StyledPageWrapper-sc-3p8f0h-0.iwLXsH > div.TeacherRatingsPage__TeacherBlock-a57owa-1.gmNsKR > div.TeacherInfo__StyledTeacher-ti1fio-1.fIlNyU > div.TeacherFeedback__StyledTeacherFeedback-gzhlj7-0.jCDePN > div:nth-child(2) > div.FeedbackItem__FeedbackNumber-uof32n-1.bGrrmf"
-            var overallQuality = "#root > div > div > div.PageWrapper__StyledPageWrapper-sc-3p8f0h-0.iwLXsH > div.TeacherRatingsPage__TeacherBlock-a57owa-1.gmNsKR > div.TeacherInfo__StyledTeacher-ti1fio-1.fIlNyU > div:nth-child(1) > div.RatingValue__AvgRating-qw8sqy-1.gIgExh > div > div.RatingValue__Numerator-qw8sqy-2.gxuTRq"
-            var mostRecentComment = "#ratingsList > li:nth-child(1) > div > div.Rating__RatingInfo-sc-1rhvpxz-2.coQIDo > div.Comments__StyledComments-dzzyvm-0.dEfjGB"
+            // CSS Selector - Using even more generic selectors to improve robustness
+            var wouldTakeAgain = "[class*='TeacherFeedback'] div:nth-child(1) [class*='FeedbackNumber']"
+            var difficulty = "[class*='TeacherFeedback'] div:nth-child(2) [class*='FeedbackNumber']"
+            var overallQuality = "[class*='RatingValue'] [class*='Numerator']"
+            var mostRecentComment = "#ratingsList li:first-child [class*='Comments']"
 
             // JQuery Function
             const $ = cheerio.load(html); // creates Jquery function to parse through html
 
             // $(css_selector) ==> Jquery HTML Object for the found html tag
-            const percentage = $(wouldTakeAgain).html();
-            const difficultyDecimal = $(difficulty).html();
-            const quality = $(overallQuality).html();
-            var mostRecentCommentHtml = $(mostRecentComment).html();
+            // Try text() method if html() doesn't work
+            let percentage = $(wouldTakeAgain).html() || $(wouldTakeAgain).text();
+            percentage = percentage || "N/A";
             
-    
+            let difficultyDecimal = $(difficulty).html() || $(difficulty).text();
+            difficultyDecimal = difficultyDecimal || "N/A";
+            
+            let quality = $(overallQuality).html() || $(overallQuality).text();
+            quality = quality || "N/A";
+            
+            let mostRecentCommentHtml = $(mostRecentComment).html() || $(mostRecentComment).text();
+            mostRecentCommentHtml = mostRecentCommentHtml || "No comments available";
+            
+            // Try one more approach - look for any elements with text that might contain these values
+            if (percentage === "N/A") {
+                $('[class*="would-take-again"], [class*="WouldTakeAgain"]').each(function() {
+                    const text = $(this).text();
+                    if (text && text.trim() !== "") {
+                        percentage = text;
+                        return false; // break the loop
+                    }
+                });
+            }
+            
+            if (difficultyDecimal === "N/A") {
+                $('[class*="difficulty"], [class*="Difficulty"]').each(function() {
+                    const text = $(this).text();
+                    if (text && text.trim() !== "") {
+                        difficultyDecimal = text;
+                        return false; // break the loop
+                    }
+                });
+            }
+            
+            if (quality === "N/A") {
+                $('[class*="quality"], [class*="Quality"], [class*="rating"], [class*="Rating"]').each(function() {
+                    const text = $(this).text();
+                    if (text && text.trim() !== "" && /^\d+(\.\d+)?$/.test(text.trim())) {
+                        quality = text;
+                        return false; // break the loop
+                    }
+                });
+            }
+            
+            // Clean up the values (remove extra whitespace, decode HTML entities, etc.)
+            const cleanText = (text) => {
+                if (!text) return text;
+                // Create a temporary div to decode HTML entities
+                const tempDiv = document.createElement('div');
+                tempDiv.innerHTML = text;
+                const decodedText = tempDiv.textContent || tempDiv.innerText || text;
+                return decodedText.replace(/\s+/g, ' ').trim();
+            };
+            
+            // Alternative clean function if we're in Node.js environment without document
+            const nodeCleanText = (text) => {
+                if (!text) return text;
+                // Simple HTML entity decoding for common entities
+                return text
+                    .replace(/&amp;/g, '&')
+                    .replace(/&lt;/g, '<')
+                    .replace(/&gt;/g, '>')
+                    .replace(/&quot;/g, '"')
+                    .replace(/&#39;/g, "'")
+                    .replace(/\s+/g, ' ')
+                    .trim();
+            };
+            
+            // Use the Node.js version of the clean function since we're in a Node.js environment
+            percentage = nodeCleanText(percentage);
+            difficultyDecimal = nodeCleanText(difficultyDecimal);
+            quality = nodeCleanText(quality);
+            mostRecentCommentHtml = nodeCleanText(mostRecentCommentHtml);
+            
+            // Log the values for debugging
+            console.log('Would Take Again:', percentage);
+            console.log('Difficulty:', difficultyDecimal);
+            console.log('Quality:', quality);
+            console.log('Most Recent Comment:', mostRecentCommentHtml ? 'Found' : 'Not found');
+            
+            // If all values are N/A, log some of the HTML structure for debugging
+            if (percentage === "N/A" && difficultyDecimal === "N/A" && quality === "N/A") {
+                console.log('DEBUG: All values are N/A. Logging HTML structure for debugging:');
+                console.log('HTML Structure Sample:', html.substring(0, 500) + '...');
+                
+                // Log all class names that might be relevant
+                const classNames = [];
+                $('[class*="rating"], [class*="Rating"], [class*="quality"], [class*="Quality"], [class*="difficulty"], [class*="Difficulty"], [class*="would"], [class*="Would"]').each(function() {
+                    classNames.push($(this).attr('class'));
+                });
+                console.log('Relevant class names found:', classNames.slice(0, 10));
+            }
             
             callback({
                 percentage: percentage,
