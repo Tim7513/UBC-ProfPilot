@@ -124,19 +124,7 @@ function getProfData(profURL, callback) {
             const ratingSelector = "[class*='Rating-'], [class*='RatingsList'] > div, [class*='Comments'] > div";
             
             $(ratingSelector).each(function() {
-                // Initialize comment object with empty strings for all possible attributes
-                const comment = {
-                    courseCode: "",
-                    quality: "",
-                    difficulty: "",
-                    wouldTakeAgain: "",
-                    forCredit: "",
-                    textbook: "",
-                    mandatoryAttendance: "",
-                    gradeReceived: "",
-                    tags: [],
-                    comment: ""
-                };
+                const comment = {};
                 
                 // Extract course code
                 const courseCode = $(this).find("[class*='RatingHeader'] [class*='CourseName'], [class*='ratingHeader'] [class*='courseName']").text().trim();
@@ -144,13 +132,13 @@ function getProfData(profURL, callback) {
                 
                 // Extract quality rating (1-5)
                 const qualityRating = $(this).find("[class*='RatingValues'] [class*='Quality'], [class*='ratingValues'] [class*='quality']").text().trim();
-                if (qualityRating && /^[1-5](\.[\d]+)?$/.test(qualityRating)) {
+                if (qualityRating && /^[1-5](\.\d+)?$/.test(qualityRating)) {
                     comment.quality = parseFloat(qualityRating);
                 }
                 
                 // Extract difficulty rating (1-5)
                 const difficultyRating = $(this).find("[class*='RatingValues'] [class*='Difficulty'], [class*='ratingValues'] [class*='difficulty']").text().trim();
-                if (difficultyRating && /^[1-5](\.[\d]+)?$/.test(difficultyRating)) {
+                if (difficultyRating && /^[1-5](\.\d+)?$/.test(difficultyRating)) {
                     comment.difficulty = parseFloat(difficultyRating);
                 }
                 
@@ -194,15 +182,14 @@ function getProfData(profURL, callback) {
                     }
                 }
                 
-                // Extract tags (but keep the empty array if no tags are found)
+                const tags = [];
                 $(this).find("[class*='Tag'], [class*='tag']").each(function() {
                     const tag = $(this).text().trim();
-                    if (tag) comment.tags.push(tag);
+                        tags.push(tag);
                 });
-                if (comment.tags.length > 0) {
-                    // Remove the first element only if it exists and there are more tags
-                    // (the first tag is often a string of all the tags, not needed)
-                    comment.tags.shift();
+                tags.shift()  // Remove first element because the first element in tags is a connected string of all the tags
+                if (tags.length > 0) {
+                    comment.tags = tags;
                 }
                 
                 // Extract comment text
@@ -224,6 +211,7 @@ function getProfData(profURL, callback) {
                 quality: quality,
                 comments: comments
             })
+            
         }
 
     }).catch(function (error) {
