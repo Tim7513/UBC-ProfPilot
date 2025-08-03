@@ -1,4 +1,4 @@
-const axios = require('axios');
+const puppeteer = require('puppeteer');
 const cheerio = require('cheerio');
 
 // Add headers to mimic a real browser request
@@ -11,16 +11,193 @@ const headers = {
     'Cache-Control': 'max-age=0'
 };
 
-function getProfData(profURL, callback) {
+async function getProfData(profURL, callback) {
     console.log(`Making request to: ${profURL}`);
     
-    axios.get(profURL, { 
-        headers: headers,
-        timeout: 10000 // 10 second timeout
-    }).then(function (response) { //Callback function
-
-        if (response.status === 200) { // valid url
-            const html = response.data;
+    try {
+        // Launch a headless browser with optimized settings
+        const browser = await puppeteer.launch({
+            headless: true,
+            args: [
+                '--no-sandbox', 
+                '--disable-setuid-sandbox',
+                '--disable-dev-shm-usage',
+                '--disable-gpu',
+                '--no-first-run',
+                '--no-default-browser-check',
+                '--disable-default-apps',
+                '--disable-extensions',
+                '--disable-background-timer-throttling',
+                '--disable-renderer-backgrounding',
+                '--disable-backgrounding-occluded-windows'
+            ]
+        });
+        
+        // Create a new page
+        const page = await browser.newPage();
+        
+        // Set user agent to avoid detection
+        await page.setUserAgent(headers['User-Agent']);
+        
+        // Block unnecessary resources to speed up page loading
+        await page.setRequestInterception(true);
+        page.on('request', (request) => {
+            const resourceType = request.resourceType();
+            if (resourceType === 'image' || resourceType === 'stylesheet' || resourceType === 'font') {
+                request.abort();
+            } else {
+                request.continue();
+            }
+        });
+        
+        // Navigate to the professor's page with faster settings
+        await page.goto(profURL, { waitUntil: 'domcontentloaded', timeout: 15000 });
+        
+        // Wait a bit for initial content to load
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        // Click "Load More Ratings" button until all ratings are loaded - OPTIMIZED VERSION
+        let loadMoreVisible = true;
+        let previousCommentsCount = 0;
+        let currentCommentsCount = 0;
+        let attemptCount = 0;
+        const maxAttempts = 100; // Increased limit since we're clicking faster
+        let cachedButtonSelector = null; // Cache the working button selector
+        
+        console.log('Starting to load all ratings...');
+        
+        // First, try to find and cache the working button selector
+        const findButtonSelector = async () => {
+            if (cachedButtonSelector) {
+                const button = await page.$(cachedButtonSelector);
+                if (button) return button;
+            }
+            
+            // Try to find the button using the most common selectors first
+            const commonSelectors = [
+                'button[class*="loadMore"]',
+                'button[class*="LoadMore"]',
+                'button[class*="PaginationButton"]',
+                'button[class*="Buttons__Button"]',
+                'button[class*="pagination"]',
+                'button[class*="Pagination"]'
+            ];
+            
+            for (const selector of commonSelectors) {
+                try {
+                    const button = await page.$(selector);
+                    if (button) {
+                        cachedButtonSelector = selector;
+                        return button;
+                    }
+                } catch (e) {
+                    // Continue to next selector
+                }
+            }
+            
+            // Fallback to more comprehensive search
+            return await page.evaluateHandle(() => {
+                const buttons = Array.from(document.querySelectorAll('button'));
+                return buttons.find(el => 
+                    el.textContent && (
+                        el.textContent.includes('Load More') ||
+                        el.textContent.includes('Show More') ||
+                        el.textContent.includes('More')
+                    )
+                ) || null;
+            });
+        };
+        
+        while (loadMoreVisible && attemptCount < maxAttempts) {
+            try {
+                // Quick count of current ratings
+                currentCommentsCount = await page.$$eval('[class*="Rating-"], [class*="RatingsList"] > div, [class*="Comments"] > div', elements => elements.length);
+                
+                // If no new comments were loaded after the first few attempts, we're done
+                if (attemptCount > 2 && currentCommentsCount === previousCommentsCount) {
+                    console.log(`No new ratings loaded. Final count: ${Math.floor(currentCommentsCount / 4)}`);  // divide by 4 because each rating has 3 empty elements (for some reason?)
+                    loadMoreVisible = false;
+                    break;
+                }
+                
+                if (attemptCount % 5 === 0) { // Log every 5 attempts to reduce spam
+                    console.log(`Attempt ${attemptCount}: ${Math.floor(currentCommentsCount / 4)} ratings loaded`);  // divide by 4 because each rating has 3 empty elements (for some reason?)
+                }
+                
+                previousCommentsCount = currentCommentsCount;
+                
+                // Find the load more button
+                const loadMoreButton = await findButtonSelector();
+                
+                if (loadMoreButton && loadMoreButton.asElement) {
+                    // Quick visibility check
+                    const isVisible = await page.evaluate(button => {
+                        if (!button) return false;
+                        const rect = button.getBoundingClientRect();
+                        const style = window.getComputedStyle(button);
+                        return rect.width > 0 && rect.height > 0 && 
+                               style.display !== 'none' && 
+                               style.visibility !== 'hidden' && 
+                               style.opacity !== '0';
+                    }, loadMoreButton);
+                    
+                    if (isVisible) {
+                        // Click the button
+                        await loadMoreButton.click();
+                        attemptCount++;
+                        
+                        // Very short wait - just enough time for the click to register
+                        await new Promise(resolve => setTimeout(resolve, 150));
+                        
+                        // Quick check if more content is loading
+                        try {
+                            await page.waitForFunction(
+                                (expectedCount) => {
+                                    const elements = document.querySelectorAll('[class*="Rating-"], [class*="RatingsList"] > div, [class*="Comments"] > div');
+                                    return elements.length > expectedCount;
+                                },
+                                { timeout: 1500 }, // Even shorter timeout for faster iteration
+                                currentCommentsCount
+                            );
+                            // If content loaded quickly, wait just a bit more for DOM to stabilize
+                            await new Promise(resolve => setTimeout(resolve, 200));
+                        } catch (e) {
+                            // If timeout, continue anyway but wait a bit longer in case content is still loading
+                            await new Promise(resolve => setTimeout(resolve, 400));
+                        }
+                    } else {
+                        console.log('Load More button not visible');
+                        loadMoreVisible = false;
+                    }
+                } else {
+                    console.log('No Load More button found');
+                    loadMoreVisible = false;
+                }
+            } catch (error) {
+                console.log('Error while loading more ratings:', error.message);
+                attemptCount++;
+                
+                // More lenient error handling - only stop after many errors
+                if (attemptCount > 10 && error.message.includes('click')) {
+                    console.log('Multiple click errors occurred, stopping.');
+                    loadMoreVisible = false;
+                }
+            }
+        }
+        
+        if (attemptCount >= maxAttempts) {
+            console.log(`Reached maximum attempts (${maxAttempts}), stopping.`);
+        }
+        
+        console.log(`Finished loading all ratings. Total: ${currentCommentsCount} ratings in ${attemptCount} attempts`);
+        // Short final wait
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        // Get the page content after all ratings are loaded
+        const html = await page.content();
+        
+        // Close the browser
+        await browser.close();
             
             // CSS Selector - Using even more generic selectors to improve robustness
             var wouldTakeAgain = "[class*='TeacherFeedback'] div:nth-child(1) [class*='FeedbackNumber']"
@@ -188,9 +365,9 @@ function getProfData(profURL, callback) {
                         tags.push(tag);
                 });
                 tags.shift()  // Remove first element because the first element in tags is a connected string of all the tags
-                if (tags.length > 0) {
-                    comment.tags = tags;
-                }
+                // if (tags.length > 0) {
+                comment.tags = tags;
+                // }
                 
                 // Extract comment text
                 const commentText = $(this).find("[class*='Comments'], [class*='comments']").text().trim();
@@ -210,39 +387,18 @@ function getProfData(profURL, callback) {
                 difficulty: difficultyDecimal,
                 quality: quality,
                 comments: comments
-            })
-            
-        }
+            });
+        
 
-    }).catch(function (error) {
+    } catch (error) {
         console.error('Error fetching professor data:', error.message);
-        if (error.response) {
-            // The request was made and the server responded with a status code
-            // that falls out of the range of 2xx
-            console.error('Response status:', error.response.status);
-            console.error('Response headers:', error.response.headers);
-            
-            if (error.response.status === 403 || error.response.status === 429) {
-                console.error('You have been blocked by RateMyProfessors. Try the following:');
-                console.error('1. Wait for some time before making more requests');
-                console.error('2. Use a proxy or VPN');
-                console.error('3. Check if you need to solve a CAPTCHA by visiting the site in your browser');
-            }
-        } else if (error.request) {
-            // The request was made but no response was received
-            console.error('No response received. The request was made but no response was received');
-            console.error('Request details:', error.request);
-        } else {
-            // Something happened in setting up the request that triggered an Error
-            console.error('Error setting up the request:', error.message);
-        }
         
         // Call the callback with an error object
         callback({
             error: error.message,
-            status: error.response ? error.response.status : null
+            status: null
         });
-    });
+    }
 }
 
 module.exports = getProfData
