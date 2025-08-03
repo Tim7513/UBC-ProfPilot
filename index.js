@@ -49,7 +49,8 @@ app.get('/professor', function (req, res) {
                 university: urlResponse.university,
                 would_take_again: data.percentage,
                 difficulty: data.difficulty,
-                overall_quality: data.quality
+                overall_quality: data.quality,
+                comments: data.comments || []
             });
         });
     });

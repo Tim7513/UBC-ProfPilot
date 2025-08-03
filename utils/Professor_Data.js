@@ -118,15 +118,113 @@ function getProfData(profURL, callback) {
                 console.log('Relevant class names found:', classNames.slice(0, 10));
             }
             
+            // Extract comments
+            const comments = [];
+            // Target the rating cards/comments section
+            const ratingSelector = "[class*='Rating-'], [class*='RatingsList'] > div, [class*='Comments'] > div";
+            
+            $(ratingSelector).each(function() {
+                // Initialize comment object with empty strings for all possible attributes
+                const comment = {
+                    courseCode: "",
+                    quality: "",
+                    difficulty: "",
+                    wouldTakeAgain: "",
+                    forCredit: "",
+                    textbook: "",
+                    mandatoryAttendance: "",
+                    gradeReceived: "",
+                    tags: [],
+                    comment: ""
+                };
+                
+                // Extract course code
+                const courseCode = $(this).find("[class*='RatingHeader'] [class*='CourseName'], [class*='ratingHeader'] [class*='courseName']").text().trim();
+                if (courseCode) comment.courseCode = courseCode;
+                
+                // Extract quality rating (1-5)
+                const qualityRating = $(this).find("[class*='RatingValues'] [class*='Quality'], [class*='ratingValues'] [class*='quality']").text().trim();
+                if (qualityRating && /^[1-5](\.[\d]+)?$/.test(qualityRating)) {
+                    comment.quality = parseFloat(qualityRating);
+                }
+                
+                // Extract difficulty rating (1-5)
+                const difficultyRating = $(this).find("[class*='RatingValues'] [class*='Difficulty'], [class*='ratingValues'] [class*='difficulty']").text().trim();
+                if (difficultyRating && /^[1-5](\.[\d]+)?$/.test(difficultyRating)) {
+                    comment.difficulty = parseFloat(difficultyRating);
+                }
+                
+                // Extract would take again
+                const wouldTakeAgain = $(this).find("[class*='MetaItem']:contains('Would Take Again'), [class*='metaItem']:contains('Would Take Again')").text().trim();
+                if (wouldTakeAgain) {
+                    comment.wouldTakeAgain = wouldTakeAgain.toLowerCase().includes('yes') ? 'yes' : 'no';
+                }
+                
+                // Extract for credit
+                const forCredit = $(this).find("[class*='MetaItem']:contains('For Credit'), [class*='metaItem']:contains('For Credit')").text().trim();
+                if (forCredit) {
+                    comment.forCredit = forCredit.toLowerCase().includes('yes') ? 'yes' : 'no';
+                }
+                
+                // Extract textbook use
+                const textbook = $(this).find("[class*='MetaItem']:contains('Textbook'), [class*='metaItem']:contains('Textbook')").text().trim();
+                if (textbook) {
+                    const textbookLower = textbook.toLowerCase();
+                    if (textbookLower.includes('yes')) {
+                        comment.textbook = 'yes';
+                    } else if (textbookLower.includes('no')) {
+                        comment.textbook = 'no';
+                    } else if (textbookLower.includes('n/a')) {
+                        comment.textbook = 'N/A';
+                    }
+                }
+                
+                // Extract attendance
+                const attendance = $(this).find("[class*='MetaItem']:contains('Attendance'), [class*='metaItem']:contains('Attendance')").text().trim();
+                if (attendance) {
+                    comment.mandatoryAttendance = attendance.toLowerCase().includes('mandatory') ? 'yes' : 'no';
+                }
+                
+                // Extract grade
+                const grade = $(this).find("[class*='MetaItem']:contains('Grade'), [class*='metaItem']:contains('Grade')").text().trim();
+                if (grade) {
+                    const gradeMatch = grade.match(/[A-F][+-]?/);
+                    if (gradeMatch) {
+                        comment.gradeReceived = gradeMatch[0];
+                    }
+                }
+                
+                // Extract tags (but keep the empty array if no tags are found)
+                $(this).find("[class*='Tag'], [class*='tag']").each(function() {
+                    const tag = $(this).text().trim();
+                    if (tag) comment.tags.push(tag);
+                });
+                if (comment.tags.length > 0) {
+                    // Remove the first element only if it exists and there are more tags
+                    // (the first tag is often a string of all the tags, not needed)
+                    comment.tags.shift();
+                }
+                
+                // Extract comment text
+                const commentText = $(this).find("[class*='Comments'], [class*='comments']").text().trim();
+                if (commentText) {
+                    comment.comment = nodeCleanText(commentText);
+                }
+                
+                // Only add if we have at least some data
+                if (Object.keys(comment).length > 0) {
+                    comments.push(comment);
+                }
+            });
+            
+            // Sort comments by most recent first (assuming they're already in that order from scraping)
             callback({
                 percentage: percentage,
                 difficulty: difficultyDecimal,
-                quality: quality
+                quality: quality,
+                comments: comments
             })
-
-            
         }
-
 
     }).catch(function (error) {
         console.error('Error fetching professor data:', error.message);
