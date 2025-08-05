@@ -57,11 +57,16 @@ async function getProfData(profURL, callback) {
         await new Promise(resolve => setTimeout(resolve, 500));
         
         // Click "Load More Ratings" button until all ratings are loaded - OPTIMIZED VERSION
+        // Get total number of ratings from header
+        const totalRatings = parseInt(await page.$eval("[class*='TeacherRatingTabs__StyledTab'][class*='selected']", el => el.textContent.match(/\d+/)[0]));
+        // Multiply 4 because each rating has 3 more empty ratings. Divide 20 because 20 ratings (5 real ratings + 15 empty ratings) are loaded each time.
+        const maxAttempts = Math.ceil(totalRatings * 4 / 20) || 100; //Fallback to 100 if extraction fails
+        console.log('Total ratings:', totalRatings);
+        
         let loadMoreVisible = true;
         let previousCommentsCount = 0;
         let currentCommentsCount = 0;
         let attemptCount = 0;
-        const maxAttempts = 100; // Increased limit since we're clicking faster
         let cachedButtonSelector = null; // Cache the working button selector
         
         console.log('Starting to load all ratings...');
