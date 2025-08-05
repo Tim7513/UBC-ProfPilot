@@ -166,11 +166,11 @@ async function getProfData(profURL, callback) {
                             await new Promise(resolve => setTimeout(resolve, 400));
                         }
                     } else {
-                        console.log('Load More button not visible');
+                        console.log('Load More button no longer visible');
                         loadMoreVisible = false;
                     }
                 } else {
-                    console.log('No Load More button found');
+                    console.log('Load More button not found');
                     loadMoreVisible = false;
                 }
             } catch (error) {
@@ -189,7 +189,7 @@ async function getProfData(profURL, callback) {
             console.log(`Reached maximum attempts (${maxAttempts}), stopping.`);
         }
         
-        console.log(`Finished loading all ratings. Total: ${currentCommentsCount} ratings in ${attemptCount} attempts`);
+        console.log(`Finished loading all ratings. Total: ${Math.floor(currentCommentsCount / 4)} ratings in ${attemptCount} attempts`);
         // Short final wait
         await new Promise(resolve => setTimeout(resolve, 500));
         
@@ -249,16 +249,6 @@ async function getProfData(profURL, callback) {
                 });
             }
             
-            // Clean up the values (remove extra whitespace, decode HTML entities, etc.)
-            const cleanText = (text) => {
-                if (!text) return text;
-                // Create a temporary div to decode HTML entities
-                const tempDiv = document.createElement('div');
-                tempDiv.innerHTML = text;
-                const decodedText = tempDiv.textContent || tempDiv.innerText || text;
-                return decodedText.replace(/\s+/g, ' ').trim();
-            };
-            
             // Alternative clean function if we're in Node.js environment without document
             const nodeCleanText = (text) => {
                 if (!text) return text;
@@ -303,9 +293,11 @@ async function getProfData(profURL, callback) {
             $(ratingSelector).each(function() {
                 const comment = {};
                 
-                // Extract course code
-                const courseCode = $(this).find("[class*='RatingHeader'] [class*='CourseName'], [class*='ratingHeader'] [class*='courseName']").text().trim();
-                if (courseCode) comment.courseCode = courseCode;
+                // Extract course code using the specific RateMyProfessors class
+                const courseCode = $(this).find("[class*='RatingHeader__StyledClass']").text().trim();
+                if (courseCode) {
+                    comment.courseCode = courseCode.split(" ")[0];  // Course code is duplicated, only one course code is needed
+                }
                 
                 // Extract quality rating (1-5)
                 const qualityRating = $(this).find("[class*='RatingValues'] [class*='Quality'], [class*='ratingValues'] [class*='quality']").text().trim();
@@ -365,9 +357,9 @@ async function getProfData(profURL, callback) {
                         tags.push(tag);
                 });
                 tags.shift()  // Remove first element because the first element in tags is a connected string of all the tags
-                // if (tags.length > 0) {
-                comment.tags = tags;
-                // }
+                if (tags.length > 0) {
+                    comment.tags = tags;
+                }
                 
                 // Extract comment text
                 const commentText = $(this).find("[class*='Comments'], [class*='comments']").text().trim();
