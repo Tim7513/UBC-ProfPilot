@@ -33,6 +33,8 @@ async function getProfData(profURL, callback) {
             ]
         });
         
+        // Start timing
+        console.time('Rating Load Time');
         // Create a new page
         const page = await browser.newPage();
         
@@ -53,14 +55,11 @@ async function getProfData(profURL, callback) {
         // Navigate to the professor's page with faster settings
         await page.goto(profURL, { waitUntil: 'domcontentloaded', timeout: 15000 });
         
-        // Wait a bit for initial content to load
-        await new Promise(resolve => setTimeout(resolve, 500));
-        
         // Click "Load More Ratings" button until all ratings are loaded - OPTIMIZED VERSION
         // Get total number of ratings from header
         const totalRatings = parseInt(await page.$eval("[class*='TeacherRatingTabs__StyledTab'][class*='selected']", el => el.textContent.match(/\d+/)[0]));
         // Multiply 4 because each rating has 3 more empty ratings. Divide 20 because 20 ratings (5 real ratings + 15 empty ratings) are loaded each time.
-        const maxAttempts = Math.ceil(totalRatings * 4 / 20) || 100; //Fallback to 100 if extraction fails
+        const maxAttempts = Math.ceil(totalRatings * 4 / 20) || 100; // Fallback to 100 if extraction fails
         console.log('Total ratings:', totalRatings);
         
         let loadMoreVisible = true;
@@ -151,9 +150,6 @@ async function getProfData(profURL, callback) {
                         await loadMoreButton.click();
                         attemptCount++;
                         
-                        // Very short wait - just enough time for the click to register
-                        await new Promise(resolve => setTimeout(resolve, 150));
-                        
                         // Quick check if more content is loading
                         try {
                             await page.waitForFunction(
@@ -161,14 +157,12 @@ async function getProfData(profURL, callback) {
                                     const elements = document.querySelectorAll('[class*="Rating-"], [class*="RatingsList"] > div, [class*="Comments"] > div');
                                     return elements.length > expectedCount;
                                 },
-                                { timeout: 1500 }, // Even shorter timeout for faster iteration
+                                { timeout: 1500 }, // Short timeout for faster iteration
                                 currentCommentsCount
                             );
-                            // If content loaded quickly, wait just a bit more for DOM to stabilize
-                            await new Promise(resolve => setTimeout(resolve, 200));
                         } catch (e) {
                             // If timeout, continue anyway but wait a bit longer in case content is still loading
-                            await new Promise(resolve => setTimeout(resolve, 400));
+                            await new Promise(resolve => setTimeout(resolve, 300));
                         }
                     } else {
                         console.log('Load More button no longer visible');
@@ -193,13 +187,16 @@ async function getProfData(profURL, callback) {
         if (attemptCount >= maxAttempts) {
             console.log(`Reached maximum attempts (${maxAttempts}), stopping.`);
         }
+
+        if (totalRatings > Math.floor(currentCommentsCount / 4)) {
+            console.log('WARNING: Not all ratings were successfully loaded')
+        }
         
         console.log(`Finished loading all ratings. Total: ${Math.floor(currentCommentsCount / 4)} ratings in ${attemptCount} attempts`);
-        // Short final wait
-        await new Promise(resolve => setTimeout(resolve, 500));
         
         // Get the page content after all ratings are loaded
         const html = await page.content();
+        console.timeEnd('Rating Load Time');
         
         // Close the browser
         await browser.close();
