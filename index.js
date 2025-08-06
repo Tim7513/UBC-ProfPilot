@@ -50,7 +50,8 @@ app.get('/professor', function (req, res) {
                 would_take_again: data.percentage,
                 difficulty: data.difficulty,
                 overall_quality: data.quality,
-                comments: data.comments || []
+                ratings: data.ratings,
+                summary: data.summary
             });
         });
     });

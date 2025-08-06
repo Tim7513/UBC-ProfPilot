@@ -1,5 +1,12 @@
 const puppeteer = require('puppeteer');
 const cheerio = require('cheerio');
+const OpenAI = require('openai');
+require('dotenv').config();
+
+// Initialize OpenAI client
+const openai = new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY // Set this environment variable in .env
+});
 
 // Add headers to mimic a real browser request
 const headers = {
@@ -10,6 +17,50 @@ const headers = {
     'Upgrade-Insecure-Requests': '1',
     'Cache-Control': 'max-age=0'
 };
+
+// Function to summarize all ratings using GPT-4o-mini
+async function summarizeRatings(ratings) {
+    if (!ratings || ratings.length === 0) {
+        return "No ratings available to summarize.";
+    }
+
+    // Prepare the ratings data for summarization
+    const ratingsText = ratings.map((rating, index) => {
+        let ratingText = `Rating ${index + 1}:\n`;
+        if (rating.quality) ratingText += `Quality: ${rating.quality}/5\n`;
+        if (rating.difficulty) ratingText += `Difficulty: ${rating.difficulty}/5\n`;
+        if (rating.wouldTakeAgain) ratingText += `Would Take Again: ${rating.wouldTakeAgain}\n`;
+        if (rating.courseCode) ratingText += `Course: ${rating.courseCode}\n`;
+        if (rating.gradeReceived) ratingText += `Grade: ${rating.gradeReceived}\n`;
+        if (rating.tags && rating.tags.length > 0) ratingText += `Tags: ${rating.tags.join(', ')}\n`;
+        if (rating.comment) ratingText += `Comment: ${rating.comment}\n`;
+        return ratingText;
+    }).join('\n---\n');
+
+    try {
+        const response = await openai.chat.completions.create({
+            model: "gpt-4o-mini",
+            messages: [
+                {
+                    role: "system",
+                    content: "You are a helpful assistant that summarizes professor ratings. Provide a concise, balanced summary highlighting the key strengths, weaknesses, and overall patterns in the ratings. Focus on teaching quality, course difficulty, and student experience."
+                },
+                {
+                    role: "user",
+                    content: `Please summarize these ${ratings.length} professor ratings:\n\n${ratingsText}`
+                }
+            ],
+            max_tokens: 500,
+            temperature: 0.3
+        });
+        
+        console.log('Finished generating summary')
+        return response.choices[0].message.content;
+    } catch (error) {
+        console.error('Error generating summary:', error.message);
+        return `Error generating summary: ${error.message}`;
+    }
+}
 
 async function getProfData(profURL, callback) {
     console.log(`Making request to: ${profURL}`);
@@ -63,8 +114,8 @@ async function getProfData(profURL, callback) {
         console.log('Total ratings:', totalRatings);
         
         let loadMoreVisible = true;
-        let previousCommentsCount = 0;
-        let currentCommentsCount = 0;
+        let previousRatingsCount = 0;
+        let currentRatingsCount = 0;
         let attemptCount = 0;
         let cachedButtonSelector = null; // Cache the working button selector
         
@@ -115,20 +166,20 @@ async function getProfData(profURL, callback) {
         while (loadMoreVisible && attemptCount < maxAttempts) {
             try {
                 // Quick count of current ratings
-                currentCommentsCount = await page.$$eval('[class*="Rating-"], [class*="RatingsList"] > div, [class*="Comments"] > div', elements => elements.length);
+                currentRatingsCount = await page.$$eval('[class*="Rating-"], [class*="RatingsList"] > div, [class*="Comments"] > div', elements => elements.length);
                 
-                // If no new comments were loaded after the first few attempts, we're done
-                if (attemptCount > 2 && currentCommentsCount === previousCommentsCount) {
-                    console.log(`No new ratings loaded. Final count: ${Math.floor(currentCommentsCount / 4)}`);  // divide by 4 because each rating has 3 empty elements (for some reason?)
+                // If no new ratings were loaded after the first few attempts, we're done
+                if (attemptCount > 2 && currentRatingsCount === previousRatingsCount) {
+                    console.log(`No new ratings loaded. Final count: ${Math.floor(currentRatingsCount / 4)}`);  // divide by 4 because each rating has 3 empty elements (for some reason?)
                     loadMoreVisible = false;
                     break;
                 }
                 
                 if (attemptCount % 5 === 0) { // Log every 5 attempts to reduce spam
-                    console.log(`Attempt ${attemptCount}: ${Math.floor(currentCommentsCount / 4)} ratings loaded`);  // divide by 4 because each rating has 3 empty elements (for some reason?)
+                    console.log(`Attempt ${attemptCount}: ${Math.floor(currentRatingsCount / 4)} ratings loaded`);  // divide by 4 because each rating has 3 empty elements (for some reason?)
                 }
                 
-                previousCommentsCount = currentCommentsCount;
+                previousRatingsCount = currentRatingsCount;
                 
                 // Find the load more button
                 const loadMoreButton = await findButtonSelector();
@@ -158,7 +209,7 @@ async function getProfData(profURL, callback) {
                                     return elements.length > expectedCount;
                                 },
                                 { timeout: 1500 }, // Short timeout for faster iteration
-                                currentCommentsCount
+                                currentRatingsCount
                             );
                         } catch (e) {
                             // If timeout, continue anyway but wait a bit longer in case content is still loading
@@ -188,11 +239,11 @@ async function getProfData(profURL, callback) {
             console.log(`Reached maximum attempts (${maxAttempts}), stopping.`);
         }
 
-        if (totalRatings > Math.floor(currentCommentsCount / 4)) {
+        if (totalRatings > Math.floor(currentRatingsCount / 4)) {
             console.log('WARNING: Not all ratings were successfully loaded')
         }
         
-        console.log(`Finished loading all ratings. Total: ${Math.floor(currentCommentsCount / 4)} ratings in ${attemptCount} attempts`);
+        console.log(`Finished loading all ratings. Total: ${Math.floor(currentRatingsCount / 4)} ratings in ${attemptCount} attempts`);
         
         // Get the page content after all ratings are loaded
         const html = await page.content();
@@ -287,42 +338,42 @@ async function getProfData(profURL, callback) {
                 console.log('Relevant class names found:', classNames.slice(0, 10));
             }
             
-            // Extract comments
-            const comments = [];
-            // Target the rating cards/comments section
+            // Extract ratings
+            const ratings = [];
+            // Target the rating cards section
             const ratingSelector = "[class*='Rating-'], [class*='RatingsList'] > div, [class*='Comments'] > div";
             
             $(ratingSelector).each(function() {
-                const comment = {};
+                const rating = {};
                 
                 // Extract course code using the specific RateMyProfessors class
                 const courseCode = $(this).find("[class*='RatingHeader__StyledClass']").text().trim();
                 if (courseCode) {
-                    comment.courseCode = courseCode.split(" ")[0];  // Course code is duplicated, only one course code is needed
+                    rating.courseCode = courseCode.split(" ")[0];  // Course code is duplicated, only one course code is needed
                 }
                 
                 // Extract quality rating (1-5)
                 const qualityRating = $(this).find("[class*='RatingValues'] [class*='Quality'], [class*='ratingValues'] [class*='quality']").text().trim();
                 if (qualityRating && /^[1-5](\.\d+)?$/.test(qualityRating)) {
-                    comment.quality = parseFloat(qualityRating);
+                    rating.quality = parseFloat(qualityRating);
                 }
                 
                 // Extract difficulty rating (1-5)
                 const difficultyRating = $(this).find("[class*='RatingValues'] [class*='Difficulty'], [class*='ratingValues'] [class*='difficulty']").text().trim();
                 if (difficultyRating && /^[1-5](\.\d+)?$/.test(difficultyRating)) {
-                    comment.difficulty = parseFloat(difficultyRating);
+                    rating.difficulty = parseFloat(difficultyRating);
                 }
                 
                 // Extract would take again
                 const wouldTakeAgain = $(this).find("[class*='MetaItem']:contains('Would Take Again'), [class*='metaItem']:contains('Would Take Again')").text().trim();
                 if (wouldTakeAgain) {
-                    comment.wouldTakeAgain = wouldTakeAgain.toLowerCase().includes('yes') ? 'yes' : 'no';
+                    rating.wouldTakeAgain = wouldTakeAgain.toLowerCase().includes('yes') ? 'yes' : 'no';
                 }
                 
                 // Extract for credit
                 const forCredit = $(this).find("[class*='MetaItem']:contains('For Credit'), [class*='metaItem']:contains('For Credit')").text().trim();
                 if (forCredit) {
-                    comment.forCredit = forCredit.toLowerCase().includes('yes') ? 'yes' : 'no';
+                    rating.forCredit = forCredit.toLowerCase().includes('yes') ? 'yes' : 'no';
                 }
                 
                 // Extract textbook use
@@ -330,18 +381,18 @@ async function getProfData(profURL, callback) {
                 if (textbook) {
                     const textbookLower = textbook.toLowerCase();
                     if (textbookLower.includes('yes')) {
-                        comment.textbook = 'yes';
+                        rating.textbook = 'yes';
                     } else if (textbookLower.includes('no')) {
-                        comment.textbook = 'no';
+                        rating.textbook = 'no';
                     } else if (textbookLower.includes('n/a')) {
-                        comment.textbook = 'N/A';
+                        rating.textbook = 'N/A';
                     }
                 }
                 
                 // Extract attendance
                 const attendance = $(this).find("[class*='MetaItem']:contains('Attendance'), [class*='metaItem']:contains('Attendance')").text().trim();
                 if (attendance) {
-                    comment.mandatoryAttendance = attendance.toLowerCase().includes('mandatory') ? 'yes' : 'no';
+                    rating.mandatoryAttendance = attendance.toLowerCase().includes('mandatory') ? 'yes' : 'no';
                 }
                 
                 // Extract grade
@@ -349,7 +400,7 @@ async function getProfData(profURL, callback) {
                 if (grade) {
                     const gradeMatch = grade.match(/[A-F][+-]?/);
                     if (gradeMatch) {
-                        comment.gradeReceived = gradeMatch[0];
+                        rating.gradeReceived = gradeMatch[0];
                     }
                 }
                 
@@ -360,27 +411,32 @@ async function getProfData(profURL, callback) {
                 });
                 tags.shift()  // Remove first element because the first element in tags is a connected string of all the tags
                 if (tags.length > 0) {
-                    comment.tags = tags;
+                    rating.tags = tags;
                 }
                 
                 // Extract comment text
                 const commentText = $(this).find("[class*='Comments'], [class*='comments']").text().trim();
                 if (commentText) {
-                    comment.comment = nodeCleanText(commentText);
+                    rating.comment = nodeCleanText(commentText);
                 }
                 
                 // Only add if we have at least some data
-                if (Object.keys(comment).length > 0) {
-                    comments.push(comment);
+                if (Object.keys(rating).length > 0) {
+                    ratings.push(rating);
                 }
             });
             
-            // Sort comments by most recent first (assuming they're already in that order from scraping)
+            // Generate summary of all ratings using GPT-4o-mini
+            console.log('Generating AI summary of ratings...');
+            const summary = await summarizeRatings(ratings);
+            
+            // Sort ratings by most recent first (assuming they're already in that order from scraping)
             callback({
                 percentage: percentage,
                 difficulty: difficultyDecimal,
                 quality: quality,
-                comments: comments
+                ratings: ratings,
+                summary: summary
             });
         
 
