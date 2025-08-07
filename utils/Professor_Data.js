@@ -25,7 +25,7 @@ async function summarizeRatings(ratings) {
     }
 
     // Prepare the ratings data for summarization
-    const ratingsText = ratings.map((rating, index) => {
+    let ratingsText = ratings.map((rating, index) => {
         let ratingText = `Rating ${index + 1}:\n`;
         if (rating.quality) ratingText += `Quality: ${rating.quality}/5\n`;
         if (rating.difficulty) ratingText += `Difficulty: ${rating.difficulty}/5\n`;
@@ -37,13 +37,27 @@ async function summarizeRatings(ratings) {
         return ratingText;
     }).join('\n---\n');
 
+    const MAX_INPUT_WORDS = 10000;
+    const words = ratingsText.split(/\s+/);
+    console.log(`AI summary input length: ${words.length} words`);
+    if (words.length > MAX_INPUT_WORDS) {
+        ratingsText = words.slice(0, MAX_INPUT_WORDS).join(' ') + '...';
+        console.log(`Truncated input to ${ratingsText.length} words`);
+    }
+
     try {
+        console.time('AI Summary Generation Time');
         const response = await openai.chat.completions.create({
             model: "gpt-4o-mini",
             messages: [
                 {
                     role: "system",
-                    content: "You are a helpful assistant that summarizes professor ratings. Provide a concise, balanced summary highlighting the key strengths, weaknesses, and overall patterns in the ratings. Focus on teaching quality, course difficulty, and student experience."
+                    content: `You are a helpful and unbiased assistant that summarizes professor ratings for a student. 
+                    Provide a concise summary highlighting the key strengths (if any), weaknesses (if any), and overall patterns in the ratings.
+                    Focus on teaching quality, course difficulty, and student experience.
+                    Do not write in full sentences, only use point-form.
+                    Frequently use quotes from the ratings to support your summary.
+                    The summary must not be longer than 300 words.`
                 },
                 {
                     role: "user",
@@ -51,10 +65,13 @@ async function summarizeRatings(ratings) {
                 }
             ],
             max_tokens: 500,
-            temperature: 0.3
+            temperature: 0.5
         });
         
-        console.log('Finished generating summary')
+        console.timeEnd('AI Summary Generation Time');
+        console.log(`Input tokens used: ${response.usage.prompt_tokens}`);
+        console.log(`Output tokens used: ${response.usage.completion_tokens}`);
+        console.log(`Total tokens used: ${response.usage.total_tokens}`);
         return response.choices[0].message.content;
     } catch (error) {
         console.error('Error generating summary:', error.message);
@@ -427,7 +444,7 @@ async function getProfData(profURL, callback) {
             });
             
             // Generate summary of all ratings using GPT-4o-mini
-            console.log('Generating AI summary of ratings...');
+            console.log('\nGenerating AI summary of ratings...');
             const summary = await summarizeRatings(ratings);
             
             // Sort ratings by most recent first (assuming they're already in that order from scraping)
