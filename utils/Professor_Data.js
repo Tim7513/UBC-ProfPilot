@@ -337,23 +337,6 @@ async function getProfData(profURL, callback) {
             percentage = nodeCleanText(percentage);
             difficultyDecimal = nodeCleanText(difficultyDecimal);
             quality = nodeCleanText(quality);
-            // Log the values for debugging
-            console.log('Would Take Again:', percentage);
-            console.log('Difficulty:', difficultyDecimal);
-            console.log('Quality:', quality);
-            
-            // If all values are N/A, log some of the HTML structure for debugging
-            if (percentage === "N/A" && difficultyDecimal === "N/A" && quality === "N/A") {
-                console.log('DEBUG: All values are N/A. Logging HTML structure for debugging:');
-                console.log('HTML Structure Sample:', html.substring(0, 500) + '...');
-                
-                // Log all class names that might be relevant
-                const classNames = [];
-                $('[class*="rating"], [class*="Rating"], [class*="quality"], [class*="Quality"], [class*="difficulty"], [class*="Difficulty"], [class*="would"], [class*="Would"]').each(function() {
-                    classNames.push($(this).attr('class'));
-                });
-                console.log('Relevant class names found:', classNames.slice(0, 10));
-            }
             
             // Extract ratings
             const ratings = [];
