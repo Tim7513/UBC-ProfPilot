@@ -38,11 +38,12 @@ async function summarizeRatings(ratings) {
     }).join('\n---\n');
 
     const MAX_INPUT_WORDS = 10000;
-    const words = ratingsText.split(/\s+/);
+    const words = ratingsText.trim().split(/\s+/);
     console.log(`AI summary input length: ${words.length} words`);
     if (words.length > MAX_INPUT_WORDS) {
         ratingsText = words.slice(0, MAX_INPUT_WORDS).join(' ') + '...';
-        console.log(`Truncated input to ${ratingsText.length} words`);
+        const truncatedWordCount = ratingsText.split(/\s+/).length;
+        console.log(`Truncated input to ${truncatedWordCount} words`);
     }
 
     try {
