@@ -132,7 +132,6 @@ async function getProfData(profURL, callback) {
         console.log('Total ratings:', totalRatings);
         
         let loadMoreVisible = true;
-        let previousRatingsCount = 0;
         let currentRatingsCount = 0;
         let attemptCount = 0;
         let cachedButtonSelector = null; // Cache the working button selector
@@ -186,18 +185,9 @@ async function getProfData(profURL, callback) {
                 // Quick count of current ratings
                 currentRatingsCount = await page.$$eval('[class*="Rating-"], [class*="RatingsList"] > div, [class*="Comments"] > div', elements => elements.length);
                 
-                // If no new ratings were loaded after the first few attempts, we're done
-                if (attemptCount > 2 && currentRatingsCount === previousRatingsCount) {
-                    console.log(`No new ratings loaded. Final count: ${Math.floor(currentRatingsCount / 4)}`);  // divide by 4 because each rating has 3 empty elements (for some reason?)
-                    loadMoreVisible = false;
-                    break;
-                }
-                
                 if (attemptCount % 5 === 0) { // Log every 5 attempts to reduce spam
                     console.log(`Attempt ${attemptCount}: ${Math.floor(currentRatingsCount / 4)} ratings loaded`);  // divide by 4 because each rating has 3 empty elements (for some reason?)
                 }
-                
-                previousRatingsCount = currentRatingsCount;
                 
                 // Find the load more button
                 const loadMoreButton = await findButtonSelector();
