@@ -107,8 +107,6 @@ app.get('/course', function (req, res) {
                 profile_url: prof.profileURL
             }))
         };
-        
-        console.log(`Found ${professors.length} professors teaching ${courseName}`);
         res.json(response);
     });
 });

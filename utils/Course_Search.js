@@ -273,8 +273,46 @@ async function searchProfessorsByDepartment(universityNumber, departmentNumber, 
 }
 
 // Function to check if a professor teaches a specific course using the course dropdown
-async function hasCourse(profUrl, courseCode) {
-    
+async function hasCourse(browser, profUrl, courseCode) {
+    try {
+        const page = await browser.newPage();
+        await page.setUserAgent(headers['User-Agent']);
+        
+        // Navigate to professor's page
+        await page.goto(profUrl, { waitUntil: 'domcontentloaded', timeout: 10000 });
+        
+        // Wait for the course dropdown to be present
+        await page.waitForSelector('[id^="react-select-"][id$="-input"]', { timeout: 5000 });
+        
+        // Click on the dropdown to open it
+        const dropdownInput = await page.$('[id^="react-select-"][id$="-input"]');
+        if (dropdownInput) {
+            await dropdownInput.click();
+            
+            // Wait a moment for options to load
+            await new Promise(resolve => setTimeout(resolve, 300));
+            
+            // Get all dropdown options
+            const options = await page.$$eval('[id^="react-select-"][id*="-option-"]', elements => 
+                elements.map(el => el.textContent.trim())
+            );
+            
+            await page.close();
+            
+            // Log the course codes found
+            console.log(`Course codes for ${profUrl}:`, options);
+            
+            // Check if the specified course code is in the options
+            return options.some(option => option.includes(courseCode.toUpperCase()));
+        }
+        
+        await page.close();
+        return false;
+        
+    } catch (error) {
+        console.error(`Error checking course ${courseCode} for ${profUrl}:`, error.message);
+        return false;
+    }
 }
 
 // Main function to find professors teaching a specific course
@@ -282,13 +320,20 @@ async function findProfessorsForCourse(courseName, departmentNumber, universityN
     console.log(`\nSearching for professors teaching ${courseName} in department ${departmentNumber} at university ${universityNumber}`);
     
     try {
+        const browser = await puppeteer.launch({
+            headless: true,
+            args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
+        });
+
         // Step 1: Get all professors in the department
         searchProfessorsByDepartment(universityNumber, departmentNumber, async (error, professors) => {
             if (error) {
+                await browser.close();
                 return callback(error, null);
             }
             
             if (!professors || professors.length === 0) {
+                await browser.close();
                 return callback(new Error('No professors found in the specified department'), null);
             }
             
@@ -303,8 +348,8 @@ async function findProfessorsForCourse(courseName, departmentNumber, universityN
                     processedCount++;
                     console.log(`Processing ${processedCount}/${professors.length}: ${professor.name}`);
                     
-                    // Use the efficient hasCourse function
-                    const teachesCourse = await hasCourse(professor.profileURL, courseName);
+                    // Use the efficient hasCourse function with shared browser instance
+                    const teachesCourse = await hasCourse(browser, professor.profileURL, courseName);
                     
                     if (teachesCourse) {
                         professorsWithCourse.push({
@@ -326,6 +371,7 @@ async function findProfessorsForCourse(courseName, departmentNumber, universityN
                 }
             }
             
+            await browser.close();
             console.log(`\nSearch complete! Found ${professorsWithCourse.length} professors teaching ${courseName}`);
             callback(null, professorsWithCourse);
         });
