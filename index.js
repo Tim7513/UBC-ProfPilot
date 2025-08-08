@@ -1,5 +1,6 @@
 const professorURL = require('./utils/Professor_URL')
 const professorData = require('./utils/Professor_Data')
+const findProfessorsForCourse = require('./utils/Course_Search')
 const express = require('express');
 var app = express();
 const cors = require('cors');
@@ -58,6 +59,58 @@ app.get('/professor', function (req, res) {
     
 
 
+});
+
+app.get('/course', function (req, res) {
+    const courseName = req.query.course_name;
+    const departmentNumber = req.query.department_number;
+    const universityNumber = req.query.university_number;
+    
+    if (!courseName || !departmentNumber || !universityNumber) {
+        return res.status(400).json({
+            error: 'Missing required parameters: course_name, department_number, and university_number are required'
+        });
+    }
+    
+    console.log(`Searching for professors teaching course: ${courseName} in department ${departmentNumber} at university ${universityNumber}`);
+    
+    findProfessorsForCourse(courseName, departmentNumber, universityNumber, (error, professors) => {
+        if (error) {
+            console.error('Error finding professors for course:', error.message);
+            return res.status(500).json({
+                error: 'Error finding professors for the specified course',
+                details: error.message
+            });
+        }
+        
+        if (!professors || professors.length === 0) {
+            return res.status(404).json({
+                error: 'No professors found teaching the specified course',
+                course_name: courseName,
+                department_number: departmentNumber,
+                university_number: universityNumber
+            });
+        }
+        
+        // Format the response to include professor names and relevant information
+        const response = {
+            course_name: courseName,
+            department_number: departmentNumber,
+            university_number: universityNumber,
+            professors_count: professors.length,
+            professors: professors.map(prof => ({
+                name: prof.name,
+                first_name: prof.firstName,
+                last_name: prof.lastName,
+                department: prof.department,
+                university: prof.university,
+                profile_url: prof.profileURL
+            }))
+        };
+        
+        console.log(`Found ${professors.length} professors teaching ${courseName}`);
+        res.json(response);
+    });
 });
 
 app.listen(3000, () => {
