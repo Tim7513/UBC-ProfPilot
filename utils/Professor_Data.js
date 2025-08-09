@@ -82,7 +82,7 @@ async function summarizeRatings(ratings) {
 
 async function getProfData(profURL, callback) {
     console.log(`Making request to: ${profURL}`);
-    
+    console.time('Total Professor Data Search Time');
     try {
         // Launch a headless browser with optimized settings
         const browser = await puppeteer.launch({
@@ -429,7 +429,7 @@ async function getProfData(profURL, callback) {
                 ratings: ratings,
                 summary: summary
             });
-        
+        console.timeEnd('Total Professor Data Search Time');
 
     } catch (error) {
         console.error('Error fetching professor data:', error.message);
