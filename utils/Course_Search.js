@@ -79,7 +79,7 @@ async function searchProfessorsByDepartment(universityNumber, departmentNumber, 
             // If we can't find the count, we'll use a fallback
         }
         
-        const maxAttempts = Math.ceil(totalProfessors / 5) || 100; // Estimate based on professors per page, fallback to 100
+        const maxAttempts = Math.ceil(totalProfessors / 5 * 1.2) || 100; // Estimate based on professors per page, fallback to 100
         console.log('Estimated total professors:', totalProfessors || 'unknown');
         
         let loadMoreVisible = true;
