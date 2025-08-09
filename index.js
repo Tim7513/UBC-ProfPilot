@@ -72,8 +72,6 @@ app.get('/course', function (req, res) {
         });
     }
     
-    console.log(`Searching for professors teaching course: ${courseName} in department ${departmentNumber} at university ${universityNumber}`);
-    
     findProfessorsForCourse(courseName, departmentNumber, universityNumber, (error, professors) => {
         if (error) {
             console.error('Error finding professors for course:', error.message);
@@ -100,11 +98,12 @@ app.get('/course', function (req, res) {
             professors_count: professors.length,
             professors: professors.map(prof => ({
                 name: prof.name,
-                first_name: prof.firstName,
-                last_name: prof.lastName,
+                first_name: prof.lastName,  // First/last names are swapped
+                last_name: prof.firstName,
                 department: prof.department,
                 university: prof.university,
-                profile_url: prof.profileURL
+                profile_url: prof.profileURL,
+                num_ratings: prof.numRatings
             }))
         };
         res.json(response);

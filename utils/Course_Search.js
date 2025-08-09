@@ -15,8 +15,6 @@ const headers = {
 
 // Function to search for all professors in a department at a university
 async function searchProfessorsByDepartment(universityNumber, departmentNumber, callback) {
-    console.log(`Searching for professors in department ${departmentNumber} at university ${universityNumber}`);
-    
     const searchURL = `https://www.ratemyprofessors.com/search/professors/${universityNumber}?q=*&did=${departmentNumber}`;
     console.log(`Fetching URL: ${searchURL}`);
 
@@ -87,7 +85,7 @@ async function searchProfessorsByDepartment(universityNumber, departmentNumber, 
         let attemptCount = 0;
         let cachedButtonSelector = null; // Cache the working button selector
         
-        console.log('Starting to load all professors...');
+        console.log('\nStep 1: Starting to load all professors...');
         
         // First, try to find and cache the working button selector
         const findButtonSelector = async () => {
@@ -272,68 +270,46 @@ async function searchProfessorsByDepartment(universityNumber, departmentNumber, 
     }
 }
 
-// Function to check if a professor teaches a specific course using the course dropdown
-async function hasCourse(browser, profUrl, courseCode) {
+// Function to find the number of ratings a professor has for a specific course (scraped from page source)
+async function getNumCourseRatings(profURL, courseCode) {
     try {
-        const page = await browser.newPage();
-        await page.setUserAgent(headers['User-Agent']);
-        
-        // Navigate to professor's page
-        await page.goto(profUrl, { waitUntil: 'domcontentloaded', timeout: 10000 });
-        
-        // Wait for the course dropdown to be present
-        await page.waitForSelector('[id^="react-select-"][id$="-input"]', { timeout: 5000 });
-        
-        // Click on the dropdown to open it
-        const dropdownInput = await page.$('[id^="react-select-"][id$="-input"]');
-        if (dropdownInput) {
-            await dropdownInput.click();
-            
-            // Wait a moment for options to load
-            await new Promise(resolve => setTimeout(resolve, 300));
-            
-            // Get all dropdown options
-            const options = await page.$$eval('[id^="react-select-"][id*="-option-"]', elements => 
-                elements.map(el => el.textContent.trim())
-            );
-            
-            await page.close();
-            
-            // Log the course codes found
-            console.log(`Course codes for ${profUrl}:`, options);
-            
-            // Check if the specified course code is in the options
-            return options.some(option => option.includes(courseCode.toUpperCase()));
-        }
-        
-        await page.close();
-        return false;
-        
-    } catch (error) {
-        console.error(`Error checking course ${courseCode} for ${profUrl}:`, error.message);
-        return false;
+        // Fetch the page HTML
+        const { data: html } = await axios.get(profURL);
+
+        // Load HTML into cheerio
+        const $ = cheerio.load(html);
+
+        // Extract raw HTML text for searching
+        const pageText = $.html();
+
+        // Build regex to match courseName + courseCount pairs
+        const regex = new RegExp(
+            `"courseName":"${courseCode}"\\s*,\\s*"courseCount":(\\d+)`,
+            "i"
+        );
+
+        const match = pageText.match(regex);
+
+        // If found, return the count as a number
+        return match ? parseInt(match[1], 10) : 0;
+    } catch (err) {
+        console.error(`Error fetching or parsing ${profURL}:`, err.message);
+        return 0;
     }
 }
 
-// Main function to find professors teaching a specific course
+// Main function to find professors with ratings for a specific course
 async function findProfessorsForCourse(courseName, departmentNumber, universityNumber, callback) {
-    console.log(`\nSearching for professors teaching ${courseName} in department ${departmentNumber} at university ${universityNumber}`);
-    
+    console.log(`\nSearching for professors with ratings for ${courseName} in department ${departmentNumber} at university ${universityNumber}`);
+    console.time('Total Course Search Time');
     try {
-        const browser = await puppeteer.launch({
-            headless: true,
-            args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
-        });
-
         // Step 1: Get all professors in the department
         searchProfessorsByDepartment(universityNumber, departmentNumber, async (error, professors) => {
             if (error) {
-                await browser.close();
                 return callback(error, null);
             }
             
             if (!professors || professors.length === 0) {
-                await browser.close();
                 return callback(new Error('No professors found in the specified department'), null);
             }
             
@@ -342,37 +318,38 @@ async function findProfessorsForCourse(courseName, departmentNumber, universityN
             const professorsWithCourse = [];
             let processedCount = 0;
             
+            // Start timing the number of course ratings check
+            console.time('Check Course Ratings Time');
+
             // Process professors sequentially to avoid overwhelming the server
             for (const professor of professors) {
                 try {
                     processedCount++;
                     console.log(`Processing ${processedCount}/${professors.length}: ${professor.name}`);
                     
-                    // Use the efficient hasCourse function with shared browser instance
-                    const teachesCourse = await hasCourse(browser, professor.profileURL, courseName);
+                    const numRatings = await getNumCourseRatings(professor.profileURL, courseName);
                     
-                    if (teachesCourse) {
+                    if (numRatings > 0) {
                         professorsWithCourse.push({
                             name: professor.name,
                             firstName: professor.firstName,
                             lastName: professor.lastName,
                             department: professor.department,
                             university: professor.university,
-                            profileURL: professor.profileURL
+                            profileURL: professor.profileURL,
+                            numRatings: numRatings
                         });
-                        console.log(`✓ ${professor.name} teaches ${courseName}`);
+                        console.log(`✓ ${professor.name} has ratings for ${courseName}`);
                     }
-                    
-                    // Add delay between requests to avoid timing out
-                    await new Promise(resolve => setTimeout(resolve, 100));
                     
                 } catch (error) {
                     console.error(`Error processing professor ${professor.name}:`, error.message);
                 }
             }
             
-            await browser.close();
-            console.log(`\nSearch complete! Found ${professorsWithCourse.length} professors teaching ${courseName}`);
+            console.log(`\nSearch complete! Found ${professorsWithCourse.length} professors with ratings for ${courseName}`);
+            console.timeEnd('Check Course Ratings Time');
+            console.timeEnd('Total Course Search Time');
             callback(null, professorsWithCourse);
         });
         
