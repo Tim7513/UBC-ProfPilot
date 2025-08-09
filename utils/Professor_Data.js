@@ -136,7 +136,7 @@ async function getProfData(profURL, callback) {
         let attemptCount = 0;
         let cachedButtonSelector = null; // Cache the working button selector
         
-        console.log('Starting to load all ratings...');
+        console.log('\nStep 1: Starting to load all ratings...');
         
         // First, try to find and cache the working button selector
         const findButtonSelector = async () => {
@@ -418,7 +418,7 @@ async function getProfData(profURL, callback) {
             });
             
             // Generate summary of all ratings using GPT-4o-mini
-            console.log('\nGenerating AI summary of ratings...');
+            console.log('\nStep 2: Generating AI summary of ratings...');
             const summary = await summarizeRatings(ratings);
             
             // Sort ratings by most recent first (assuming they're already in that order from scraping)
