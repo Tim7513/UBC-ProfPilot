@@ -168,8 +168,10 @@ async function searchProfessorsByDepartment(universityNumber, departmentNumber, 
                                 { timeout: 1500 }, // Short timeout for faster iteration
                                 currentProfessorsCount
                             );
+                            console.log('Load More button clicked')
                         } catch (e) {
                             // If timeout, continue anyway but wait a bit longer in case content is still loading
+                            console.log('Load More button clicked but timed out')
                             await new Promise(resolve => setTimeout(resolve, 300));
                         }
                     } else {
