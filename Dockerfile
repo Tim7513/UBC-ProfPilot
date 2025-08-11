@@ -1,5 +1,5 @@
 # Use the official Playwright image which contains browsers and system deps.
-FROM mcr.microsoft.com/playwright:v1.54.2-jammy
+FROM mcr.microsoft.com/playwright:v1.54.2-focal
 
 # Set working dir
 WORKDIR /usr/src/app
@@ -12,7 +12,7 @@ ENV NODE_ENV=production
 COPY package*.json ./
 
 # Install production dependencies (use `npm ci` for package-lock.json)
-RUN npm ci --only=production
+RUN npm install
 
 # Copy the rest of the app
 COPY . .
