@@ -85,9 +85,19 @@ async function getProfData(profURL, callback) {
     console.time('Total Professor Data Search Time');
     try {
         // Launch a headless browser with optimized settings
+        const resolvedExecutablePath = (() => {
+            const candidate = process.env.PUPPETEER_EXECUTABLE_PATH || puppeteer.executablePath();
+            try {
+                require('fs').accessSync(candidate);
+                return candidate;
+            } catch (_) {
+                return undefined; // Let Puppeteer find its own bundled browser
+            }
+        })();
+
         const browser = await puppeteer.launch({
             headless: true,
-            executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || puppeteer.executablePath(),
+            executablePath: resolvedExecutablePath,
             args: [
                 '--no-sandbox', 
                 '--disable-setuid-sandbox',
