@@ -1,4 +1,4 @@
-const puppeteer = require('puppeteer');
+const { getBrowser } = require('./browser');
 const cheerio = require('cheerio');
 const OpenAI = require('openai');
 require('dotenv').config();
@@ -84,42 +84,36 @@ async function getProfData(profURL, callback) {
     console.log(`Making request to: ${profURL}`);
     console.time('Total Professor Data Search Time');
     try {
-        // Launch a headless browser with optimized settings
-        const browser = await puppeteer.launch({
-            headless: true,
-            args: [
-                '--no-sandbox', 
-                '--disable-setuid-sandbox',
-                '--disable-dev-shm-usage',
-                '--disable-gpu',
-                '--no-first-run',
-                '--no-default-browser-check',
-                '--disable-default-apps',
-                '--disable-extensions',
-                '--disable-background-timer-throttling',
-                '--disable-renderer-backgrounding',
-                '--disable-backgrounding-occluded-windows'
-            ]
-        });
+        // Reuse a shared headless WebKit browser to minimize process churn
+        const browser = await getBrowser();
         
         // Start timing
         console.time('Rating Load Time');
-        // Create a new page
-        const page = await browser.newPage();
-        
-        // Set user agent to avoid detection
-        await page.setUserAgent(headers['User-Agent']);
-        
-        // Block unnecessary resources to speed up page loading
-        await page.setRequestInterception(true);
-        page.on('request', (request) => {
-            const resourceType = request.resourceType();
-            if (resourceType === 'image' || resourceType === 'stylesheet' || resourceType === 'font') {
-                request.abort();
-            } else {
-                request.continue();
-            }
+        // Create a new lightweight context and page with a custom user agent
+        const context = await browser.newContext({
+            userAgent: headers['User-Agent'],
+            viewport: { width: 900, height: 700 },
+            deviceScaleFactor: 1,
+            serviceWorkers: 'block',
+            reducedMotion: 'reduce'
         });
+        // Block unnecessary/expensive resources to speed up page loading
+        await context.route('**/*', (route) => {
+            const request = route.request();
+            const type = request.resourceType();
+            const url = request.url();
+            const isRmp = /(^|\.)ratemyprofessors\.com/i.test(new URL(url).hostname);
+            if (!isRmp) {
+                return route.abort();
+            }
+            if (type === 'image' || type === 'stylesheet' || type === 'font' || type === 'media' || type === 'websocket' || type === 'manifest') {
+                return route.abort();
+            }
+            return route.continue();
+        });
+        const page = await context.newPage();
+        page.setDefaultTimeout(8000);
+        page.setDefaultNavigationTimeout(12000);
         
         // Navigate to the professor's page with faster settings
         await page.goto(profURL, { waitUntil: 'domcontentloaded', timeout: 15000 });
@@ -128,7 +122,7 @@ async function getProfData(profURL, callback) {
         // Get total number of ratings from header
         const totalRatings = parseInt(await page.$eval("[class*='TeacherRatingTabs__StyledTab'][class*='selected']", el => el.textContent.match(/\d+/)[0]));
         // Multiply 4 because each rating has 3 more empty ratings. Divide 20 because 20 ratings (5 real ratings + 15 empty ratings) are loaded each time.
-        const maxAttempts = Math.ceil(totalRatings * 4 / 20 * 1.2) || 100; // Fallback to 100 if extraction fails
+        const maxAttempts = Math.ceil(totalRatings * 4 / 20 * 1.5) || 100; // Fallback to 100 if extraction fails
         console.log('Total ratings:', totalRatings);
         
         let loadMoreVisible = true;
@@ -167,8 +161,8 @@ async function getProfData(profURL, callback) {
                 }
             }
             
-            // Fallback to more comprehensive search
-            return await page.evaluateHandle(() => {
+            // Fallback to more comprehensive search and coerce to an element handle
+            const jsHandle = await page.evaluateHandle(() => {
                 const buttons = Array.from(document.querySelectorAll('button'));
                 return buttons.find(el => 
                     el.textContent && (
@@ -178,6 +172,7 @@ async function getProfData(profURL, callback) {
                     )
                 ) || null;
             });
+            return jsHandle.asElement();
         };
         
         while (loadMoreVisible && attemptCount < maxAttempts) {
@@ -189,48 +184,54 @@ async function getProfData(profURL, callback) {
                     console.log(`Attempt ${attemptCount}: ${Math.floor(currentRatingsCount / 4)} ratings loaded`);  // divide by 4 because each rating has 3 empty elements (for some reason?)
                 }
                 
-                // Find the load more button
-                const loadMoreButton = await findButtonSelector();
-                
-                if (loadMoreButton && loadMoreButton.asElement) {
-                    // Quick visibility check
-                    const isVisible = await page.evaluate(button => {
-                        if (!button) return false;
-                        const rect = button.getBoundingClientRect();
-                        const style = window.getComputedStyle(button);
-                        return rect.width > 0 && rect.height > 0 && 
-                               style.display !== 'none' && 
-                               style.visibility !== 'hidden' && 
-                               style.opacity !== '0';
-                    }, loadMoreButton);
+                // Find and click the load more button (get fresh reference each time)
+                try {
+                    const loadMoreButton = await findButtonSelector();
                     
-                    if (isVisible) {
-                        // Click the button
-                        await loadMoreButton.click();
-                        attemptCount++;
+                    if (loadMoreButton) {
+                        // Quick visibility check
+                        const isVisible = await page.evaluate(button => {
+                            if (!button) return false;
+                            const rect = button.getBoundingClientRect();
+                            const style = window.getComputedStyle(button);
+                            return rect.width > 0 && rect.height > 0 && 
+                                   style.display !== 'none' && 
+                                   style.visibility !== 'hidden' && 
+                                   style.opacity !== '0';
+                        }, loadMoreButton);
                         
-                        // Quick check if more content is loading
-                        try {
-                            await page.waitForFunction(
-                                (expectedCount) => {
-                                    const elements = document.querySelectorAll('[class*="Rating-"], [class*="RatingsList"] > div, [class*="Comments"] > div');
-                                    return elements.length > expectedCount;
-                                },
-                                { timeout: 1500 }, // Short timeout for faster iteration
-                                currentRatingsCount
-                            );
-                            console.log('Load More button clicked')
-                        } catch (e) {
-                            // If timeout, continue anyway but wait a bit longer in case content is still loading
-                            console.log('Load More button clicked but timed out')
-                            await new Promise(resolve => setTimeout(resolve, 300));
+                        if (isVisible) {
+                            // Click the button using page.click to avoid stale element issues
+                            await page.click(cachedButtonSelector || 'button[class*="loadMore"]');
+                            attemptCount++;
+                            
+                            // Quick check if more content is loading
+                            try {
+                                // Wait for any loading indicators to disappear
+                                await page.waitForFunction(
+                                    () => {
+                                        // Check if there are any loading spinners or indicators
+                                        const loadingIndicators = document.querySelectorAll('[class*="loading"], [class*="Loading"], [class*="spinner"], [class*="Spinner"]');
+                                        return loadingIndicators.length === 0;
+                                    },
+                                    { timeout: 2000 }
+                                );
+                                console.log('Load More button clicked')
+                            } catch (e) {
+                                // If timeout, continue anyway but wait a bit longer in case content is still loading
+                                console.log('Load More button clicked but timed out')
+                                await new Promise(resolve => setTimeout(resolve, 300));
+                            }
+                        } else {
+                            console.log('Load More button no longer visible');
+                            loadMoreVisible = false;
                         }
                     } else {
-                        console.log('Load More button no longer visible');
+                        console.log('Load More button not found');
                         loadMoreVisible = false;
                     }
-                } else {
-                    console.log('Load More button not found');
+                } catch (clickError) {
+                    console.log('Error clicking Load More button:', clickError.message);
                     loadMoreVisible = false;
                 }
             } catch (error) {
@@ -259,8 +260,8 @@ async function getProfData(profURL, callback) {
         const html = await page.content();
         console.timeEnd('Rating Load Time');
         
-        // Close the browser
-        await browser.close();
+        // Close only the context (browser is shared)
+        await context.close();
             
             // CSS Selector - Using even more generic selectors to improve robustness
             var wouldTakeAgain = "[class*='TeacherFeedback'] div:nth-child(1) [class*='FeedbackNumber']"

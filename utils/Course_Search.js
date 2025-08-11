@@ -1,6 +1,6 @@
 const axios = require('axios');
 const cheerio = require('cheerio');
-const puppeteer = require('puppeteer');
+const { getBrowser } = require('./browser');
 
 // Add headers to mimic a real browser request
 const headers = {
@@ -19,48 +19,42 @@ async function searchProfessorsByDepartment(universityNumber, departmentNumber, 
     console.log(`Fetching URL: ${searchURL}`);
 
     try {
-        // Launch a headless browser with optimized settings
-        const browser = await puppeteer.launch({
-            headless: true,
-            args: [
-                '--no-sandbox', 
-                '--disable-setuid-sandbox',
-                '--disable-dev-shm-usage',
-                '--disable-gpu',
-                '--no-first-run',
-                '--no-default-browser-check',
-                '--disable-default-apps',
-                '--disable-extensions',
-                '--disable-background-timer-throttling',
-                '--disable-renderer-backgrounding',
-                '--disable-backgrounding-occluded-windows'
-            ]
-        });
+        // Reuse a shared headless WebKit browser to minimize process churn
+        const browser = await getBrowser();
         
         // Start timing
         console.time('Professor Load Time');
         
-        // Create a new page
-        const page = await browser.newPage();
-        
-        // Set user agent to avoid detection
-        await page.setUserAgent(headers['User-Agent']);
-        
-        // Block unnecessary resources to speed up page loading
-        await page.setRequestInterception(true);
-        page.on('request', (request) => {
-            const resourceType = request.resourceType();
-            if (resourceType === 'image' || resourceType === 'stylesheet' || resourceType === 'font') {
-                request.abort();
-            } else {
-                request.continue();
-            }
+        // Create a new lightweight context and page with a custom user agent
+        const context = await browser.newContext({
+            userAgent: headers['User-Agent'],
+            viewport: { width: 900, height: 700 },
+            deviceScaleFactor: 1,
+            serviceWorkers: 'block',
+            reducedMotion: 'reduce'
         });
+        // Block unnecessary/expensive resources to speed up page loading
+        await context.route('**/*', (route) => {
+            const request = route.request();
+            const type = request.resourceType();
+            const url = request.url();
+            const isRmp = /(^|\.)ratemyprofessors\.com/i.test(new URL(url).hostname);
+            if (!isRmp) {
+                return route.abort();
+            }
+            if (type === 'image' || type === 'stylesheet' || type === 'font' || type === 'media' || type === 'websocket' || type === 'manifest') {
+                return route.abort();
+            }
+            return route.continue();
+        });
+        const page = await context.newPage();
+        page.setDefaultTimeout(8000);
+        page.setDefaultNavigationTimeout(12000);
         
         // Navigate to the department search page
         await page.goto(searchURL, { waitUntil: 'domcontentloaded', timeout: 15000 });
         
-        // Click "Load More" button until all professors are loaded - EXACT SAME IMPLEMENTATION FROM getProfData
+        // Click "Load More" button until all professors are loaded
         // Try to get total number of professors from any header/indicator
         let totalProfessors = 0;
         try {
@@ -77,7 +71,7 @@ async function searchProfessorsByDepartment(universityNumber, departmentNumber, 
             // If we can't find the count, we'll use a fallback
         }
         
-        const maxAttempts = Math.ceil(totalProfessors / 5 * 1.2) || 100; // Estimate based on professors per page, fallback to 100
+        const maxAttempts = Math.ceil(totalProfessors / 5 * 1.5) || 100; // Estimate based on professors per page, fallback to 100
         console.log('Estimated total professors:', totalProfessors || 'unknown');
         
         let loadMoreVisible = true;
@@ -116,8 +110,8 @@ async function searchProfessorsByDepartment(universityNumber, departmentNumber, 
                 }
             }
             
-            // Fallback to more comprehensive search
-            return await page.evaluateHandle(() => {
+            // Fallback to more comprehensive search and coerce to an element handle
+            const jsHandle = await page.evaluateHandle(() => {
                 const buttons = Array.from(document.querySelectorAll('button'));
                 return buttons.find(el => 
                     el.textContent && (
@@ -127,6 +121,7 @@ async function searchProfessorsByDepartment(universityNumber, departmentNumber, 
                     )
                 ) || null;
             });
+            return jsHandle.asElement();
         };
         
         while (loadMoreVisible && attemptCount < maxAttempts) {
@@ -138,48 +133,54 @@ async function searchProfessorsByDepartment(universityNumber, departmentNumber, 
                     console.log(`Attempt ${attemptCount}: ${currentProfessorsCount} professors loaded`);
                 }
                 
-                // Find the load more button
-                const loadMoreButton = await findButtonSelector();
-                
-                if (loadMoreButton && loadMoreButton.asElement) {
-                    // Quick visibility check
-                    const isVisible = await page.evaluate(button => {
-                        if (!button) return false;
-                        const rect = button.getBoundingClientRect();
-                        const style = window.getComputedStyle(button);
-                        return rect.width > 0 && rect.height > 0 && 
-                               style.display !== 'none' && 
-                               style.visibility !== 'hidden' && 
-                               style.opacity !== '0';
-                    }, loadMoreButton);
+                // Find and click the load more button (get fresh reference each time)
+                try {
+                    const loadMoreButton = await findButtonSelector();
                     
-                    if (isVisible) {
-                        // Click the button
-                        await loadMoreButton.click();
-                        attemptCount++;
+                    if (loadMoreButton) {
+                        // Quick visibility check
+                        const isVisible = await page.evaluate(button => {
+                            if (!button) return false;
+                            const rect = button.getBoundingClientRect();
+                            const style = window.getComputedStyle(button);
+                            return rect.width > 0 && rect.height > 0 && 
+                                   style.display !== 'none' && 
+                                   style.visibility !== 'hidden' && 
+                                   style.opacity !== '0';
+                        }, loadMoreButton);
                         
-                        // Quick check if more content is loading
-                        try {
-                            await page.waitForFunction(
-                                (expectedCount) => {
-                                    const elements = document.querySelectorAll("a.TeacherCard__StyledTeacherCard-syjs0d-0");
-                                    return elements.length > expectedCount;
-                                },
-                                { timeout: 1500 }, // Short timeout for faster iteration
-                                currentProfessorsCount
-                            );
-                            console.log('Load More button clicked')
-                        } catch (e) {
-                            // If timeout, continue anyway but wait a bit longer in case content is still loading
-                            console.log('Load More button clicked but timed out')
-                            await new Promise(resolve => setTimeout(resolve, 300));
+                        if (isVisible) {
+                            // Click the button using page.click to avoid stale element issues
+                            await page.click(cachedButtonSelector || 'button[class*="loadMore"]');
+                            attemptCount++;
+                            
+                            // Quick check if more content is loading
+                            try {
+                                // Wait for any loading indicators to disappear
+                                await page.waitForFunction(
+                                    () => {
+                                        // Check if there are any loading spinners or indicators
+                                        const loadingIndicators = document.querySelectorAll('[class*="loading"], [class*="Loading"], [class*="spinner"], [class*="Spinner"]');
+                                        return loadingIndicators.length === 0;
+                                    },
+                                    { timeout: 2000 }
+                                );
+                                console.log('Load More button clicked')
+                            } catch (e) {
+                                // If timeout, continue anyway but wait a bit longer in case content is still loading
+                                console.log('Load More button clicked but timed out')
+                                await new Promise(resolve => setTimeout(resolve, 300));
+                            }
+                        } else {
+                            console.log('Load More button no longer visible');
+                            loadMoreVisible = false;
                         }
                     } else {
-                        console.log('Load More button no longer visible');
+                        console.log('Load More button not found');
                         loadMoreVisible = false;
                     }
-                } else {
-                    console.log('Load More button not found');
+                } catch (clickError) {
+                    console.log('Error clicking Load More button:', clickError.message);
                     loadMoreVisible = false;
                 }
             } catch (error) {
@@ -208,8 +209,8 @@ async function searchProfessorsByDepartment(universityNumber, departmentNumber, 
         const html = await page.content();
         console.timeEnd('Professor Load Time');
         
-        // Close the browser
-        await browser.close();
+        // Close only the context (browser is shared)
+        await context.close();
         
         // Parse the HTML to extract professor information
         const $ = cheerio.load(html);
