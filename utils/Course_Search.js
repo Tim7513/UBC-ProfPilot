@@ -1,6 +1,6 @@
 const axios = require('axios');
 const cheerio = require('cheerio');
-const { getBrowser } = require('./browser');
+const { getBrowser, createOptimizedContext } = require('./browser');
 
 // Add headers to mimic a real browser request
 const headers = {
@@ -19,34 +19,14 @@ async function searchProfessorsByDepartment(universityNumber, departmentNumber, 
     console.log(`Fetching URL: ${searchURL}`);
 
     try {
-        // Reuse a shared headless WebKit browser to minimize process churn
+        // Use optimized browser pool with enhanced resource management
         const browser = await getBrowser();
         
         // Start timing
         console.time('Professor Load Time');
         
-        // Create a new lightweight context and page with a custom user agent
-        const context = await browser.newContext({
-            userAgent: headers['User-Agent'],
-            viewport: { width: 900, height: 700 },
-            deviceScaleFactor: 1,
-            serviceWorkers: 'block',
-            reducedMotion: 'reduce'
-        });
-        // Block unnecessary/expensive resources to speed up page loading
-        await context.route('**/*', (route) => {
-            const request = route.request();
-            const type = request.resourceType();
-            const url = request.url();
-            const isRmp = /(^|\.)ratemyprofessors\.com/i.test(new URL(url).hostname);
-            if (!isRmp) {
-                return route.abort();
-            }
-            if (type === 'image' || type === 'stylesheet' || type === 'font' || type === 'media' || type === 'websocket' || type === 'manifest') {
-                return route.abort();
-            }
-            return route.continue();
-        });
+        // Create optimized context with built-in resource blocking
+        const context = await createOptimizedContext(browser);
         const page = await context.newPage();
         page.setDefaultTimeout(16000);
         page.setDefaultNavigationTimeout(20000);
@@ -209,7 +189,7 @@ async function searchProfessorsByDepartment(universityNumber, departmentNumber, 
         const html = await page.content();
         console.timeEnd('Professor Load Time');
         
-        // Close only the context (browser is shared)
+        // Close context (browser is managed by pool)
         await context.close();
         
         // Parse the HTML to extract professor information

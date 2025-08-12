@@ -1,6 +1,7 @@
 const professorURL = require('./utils/Professor_URL')
 const professorData = require('./utils/Professor_Data')
 const findProfessorsForCourse = require('./utils/Course_Search')
+const { closeBrowser, getBrowserStats } = require('./utils/browser')
 const express = require('express');
 var app = express();
 const cors = require('cors');
@@ -111,6 +112,54 @@ app.get('/course', function (req, res) {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
     console.log(`Server running on ${PORT}`);
+});
+
+// Graceful shutdown handling
+const gracefulShutdown = async (signal) => {
+    console.log(`\nReceived ${signal}. Starting graceful shutdown...`);
+    
+    // Stop accepting new connections
+    server.close(async (err) => {
+        if (err) {
+            console.error('Error closing server:', err);
+        } else {
+            console.log('HTTP server closed');
+        }
+        
+        try {
+            // Close all browser instances
+            console.log('Closing browser instances...');
+            await closeBrowser();
+            console.log('Browser cleanup completed');
+            
+            console.log('Graceful shutdown completed');
+            process.exit(0);
+        } catch (error) {
+            console.error('Error during graceful shutdown:', error);
+            process.exit(1);
+        }
+    });
+    
+    // Force exit if graceful shutdown takes too long
+    setTimeout(() => {
+        console.error('Graceful shutdown timed out, forcing exit');
+        process.exit(1);
+    }, 10000);
+};
+
+// Handle graceful shutdown signals
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+
+// Handle uncaught exceptions and unhandled rejections
+process.on('uncaughtException', async (error) => {
+    console.error('Uncaught Exception:', error);
+    await gracefulShutdown('uncaughtException');
+});
+
+process.on('unhandledRejection', async (reason, promise) => {
+    console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+    await gracefulShutdown('unhandledRejection');
 });

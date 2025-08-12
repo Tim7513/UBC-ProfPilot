@@ -8,7 +8,7 @@ WORKDIR /app
 COPY package*.json ./
 
 # Install production dependencies (use `npm ci` for package-lock.json)
-RUN npm ci
+RUN npm ci --only=production
 
 # Delete playwright browsers installed previously
 RUN rm -r $PLAYWRIGHT_BROWSERS_PATH
