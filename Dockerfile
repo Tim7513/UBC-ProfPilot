@@ -22,7 +22,7 @@ RUN apt-get update && apt-get install -y \
 COPY package*.json ./
 
 # Install production dependencies (use `npm ci` for package-lock.json)
-RUN npm install
+RUN npm ci
 
 # Copy the rest of the app
 COPY . .
