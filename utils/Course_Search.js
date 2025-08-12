@@ -48,8 +48,8 @@ async function searchProfessorsByDepartment(universityNumber, departmentNumber, 
             return route.continue();
         });
         const page = await context.newPage();
-        page.setDefaultTimeout(8000);
-        page.setDefaultNavigationTimeout(12000);
+        page.setDefaultTimeout(12000);
+        page.setDefaultNavigationTimeout(15000);
         
         // Navigate to the department search page
         await page.goto(searchURL, { waitUntil: 'domcontentloaded', timeout: 15000 });

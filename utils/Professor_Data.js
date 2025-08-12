@@ -112,8 +112,8 @@ async function getProfData(profURL, callback) {
             return route.continue();
         });
         const page = await context.newPage();
-        page.setDefaultTimeout(8000);
-        page.setDefaultNavigationTimeout(12000);
+        page.setDefaultTimeout(12000);
+        page.setDefaultNavigationTimeout(15000);
         
         // Navigate to the professor's page with faster settings
         await page.goto(profURL, { waitUntil: 'domcontentloaded', timeout: 15000 });
