@@ -1,5 +1,5 @@
 # Use the official Playwright image which contains browsers and system deps.
-FROM mcr.microsoft.com/playwright:v1.50.0-noble
+FROM mcr.microsoft.com/playwright:v1.52.0-jammy
 
 # Set working dir
 WORKDIR /usr/src/app
