@@ -24,6 +24,11 @@ COPY package*.json ./
 # Install production dependencies (use `npm ci` for package-lock.json)
 RUN npm ci
 
+# Delete playwright browsers installed previously
+RUN rm -r $PLAYWRIGHT_BROWSERS_PATH
+# Install webkit again for the correct OS
+RUN npx playwright install webkit
+
 # Copy the rest of the app
 COPY . .
 
