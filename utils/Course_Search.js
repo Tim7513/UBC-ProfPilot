@@ -48,11 +48,11 @@ async function searchProfessorsByDepartment(universityNumber, departmentNumber, 
             return route.continue();
         });
         const page = await context.newPage();
-        page.setDefaultTimeout(12000);
-        page.setDefaultNavigationTimeout(15000);
+        page.setDefaultTimeout(16000);
+        page.setDefaultNavigationTimeout(20000);
         
         // Navigate to the department search page
-        await page.goto(searchURL, { waitUntil: 'domcontentloaded', timeout: 15000 });
+        await page.goto(searchURL, { waitUntil: 'domcontentloaded', timeout: 20000 });
         
         // Click "Load More" button until all professors are loaded
         // Try to get total number of professors from any header/indicator
