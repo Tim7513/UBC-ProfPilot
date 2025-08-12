@@ -5,8 +5,9 @@ FROM mcr.microsoft.com/playwright:v1.50.0-noble
 WORKDIR /usr/src/app
 
 # Install system dependencies
-RUN apt-get update && apt-get install -y \
-    npx playwright install-deps
+RUN npx playwright install-deps
+RUN npx playwright install --with-deps webkit
+# RUN apt-get update && apt-get install -y \
     # libgtk-4-1 \
     # libgraphene-1.0-0 \
     # libgstreamer-gl1.0-0 \
