@@ -3,10 +3,19 @@ const professorData = require('./utils/Professor_Data')
 const findProfessorsForCourse = require('./utils/Course_Search')
 const { closeBrowser, getBrowserStats } = require('./utils/browser')
 const express = require('express');
+const path = require('path');
 var app = express();
 const cors = require('cors');
 
 app.use(cors());
+
+// Serve static files from the client directory
+app.use(express.static(path.join(__dirname, 'client')));
+
+// Serve the main application at root path
+app.get('/app', (req, res) => {
+    res.sendFile(path.join(__dirname, 'client', 'index.html'));
+});
 
 app.get('/', function (req, res) {
     res.json('WELCOME TO THE RATE MY PROFESSOR API' );
