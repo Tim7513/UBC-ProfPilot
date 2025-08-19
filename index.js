@@ -26,12 +26,22 @@ app.get('/', function (req, res) {
     });
 });
 
-// Health check endpoint
+// Health check endpoint - simple and reliable
 app.get('/health', function (req, res) {
+    res.status(200).send('OK');
+});
+
+// More detailed health check
+app.get('/status', function (req, res) {
     res.status(200).json({
         status: 'healthy',
         timestamp: new Date().toISOString(),
-        uptime: process.uptime()
+        uptime: process.uptime(),
+        env: {
+            nodeEnv: process.env.NODE_ENV,
+            hasOpenAI: !!process.env.OPENAI_API_KEY,
+            port: process.env.PORT || 3000
+        }
     });
 });
 
@@ -135,10 +145,18 @@ app.get('/course', function (req, res) {
 });
 
 const PORT = process.env.PORT || 3000;
+
+// Log startup info
+console.log('🚀 Starting Prof Pilot server...');
+console.log('📦 Environment:', process.env.NODE_ENV || 'development');
+console.log('🔑 OpenAI API Key:', process.env.OPENAI_API_KEY ? 'Set ✅' : 'Missing ❌');
+console.log('🌐 Port:', PORT);
+
 const server = app.listen(PORT, '0.0.0.0', () => {
-    console.log(`Server running on ${PORT}`);
-    console.log(`Health check available at /health`);
-    console.log(`App available at /app`);
+    console.log(`✅ Server running on port ${PORT}`);
+    console.log(`🏥 Health check: http://localhost:${PORT}/health`);
+    console.log(`🎓 App: http://localhost:${PORT}/app`);
+    console.log('🎉 Prof Pilot is ready!');
 });
 
 // Graceful shutdown handling
