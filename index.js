@@ -18,7 +18,21 @@ app.get('/app', (req, res) => {
 });
 
 app.get('/', function (req, res) {
-    res.json('WELCOME TO THE RATE MY PROFESSOR API' );
+    res.status(200).json({
+        status: 'ok',
+        message: 'WELCOME TO THE RATE MY PROFESSOR API',
+        timestamp: new Date().toISOString(),
+        uptime: process.uptime()
+    });
+});
+
+// Health check endpoint
+app.get('/health', function (req, res) {
+    res.status(200).json({
+        status: 'healthy',
+        timestamp: new Date().toISOString(),
+        uptime: process.uptime()
+    });
 });
 
 
@@ -121,8 +135,10 @@ app.get('/course', function (req, res) {
 });
 
 const PORT = process.env.PORT || 3000;
-const server = app.listen(PORT, () => {
+const server = app.listen(PORT, '0.0.0.0', () => {
     console.log(`Server running on ${PORT}`);
+    console.log(`Health check available at /health`);
+    console.log(`App available at /app`);
 });
 
 // Graceful shutdown handling
