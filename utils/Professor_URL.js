@@ -13,7 +13,7 @@ const headers = {
 };
 
 function searchForProf(fname, lname, university, callback) { 
-    console.log(`Searching for professor: ${fname} ${lname} at ${university}`);
+    console.log(`\nSearching for professor: ${fname} ${lname} at ${university}`);
     
     fname = fname.toLowerCase().trim(); // trimming for no extra characters
     lname = lname.toLowerCase().trim();

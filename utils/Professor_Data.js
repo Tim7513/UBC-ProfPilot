@@ -1,5 +1,12 @@
-const puppeteer = require('puppeteer');
+const { getBrowser, createOptimizedContext } = require('./browser');
 const cheerio = require('cheerio');
+const OpenAI = require('openai');
+require('dotenv').config();
+
+// Initialize OpenAI client
+const openai = new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY // Set this environment variable in .env
+});
 
 // Add headers to mimic a real browser request
 const headers = {
@@ -11,64 +18,100 @@ const headers = {
     'Cache-Control': 'max-age=0'
 };
 
+// Function to summarize all ratings using GPT-4o-mini
+async function summarizeRatings(ratings) {
+    if (!ratings || ratings.length === 0) {
+        return "No ratings available to summarize.";
+    }
+
+    // Prepare the ratings data for summarization
+    let ratingsText = ratings.map((rating, index) => {
+        let ratingText = `Rating ${index + 1}:\n`;
+        if (rating.quality) ratingText += `Quality: ${rating.quality}/5\n`;
+        if (rating.difficulty) ratingText += `Difficulty: ${rating.difficulty}/5\n`;
+        if (rating.wouldTakeAgain) ratingText += `Would Take Again: ${rating.wouldTakeAgain}\n`;
+        if (rating.courseCode) ratingText += `Course: ${rating.courseCode}\n`;
+        if (rating.gradeReceived) ratingText += `Grade: ${rating.gradeReceived}\n`;
+        if (rating.tags && rating.tags.length > 0) ratingText += `Tags: ${rating.tags.join(', ')}\n`;
+        if (rating.comment) ratingText += `Comment: ${rating.comment}\n`;
+        return ratingText;
+    }).join('\n---\n');
+
+    const MAX_INPUT_WORDS = 10000;
+    const words = ratingsText.trim().split(/\s+/);
+    console.log(`AI summary input length: ${words.length} words`);
+    if (words.length > MAX_INPUT_WORDS) {
+        ratingsText = words.slice(0, MAX_INPUT_WORDS).join(' ') + '...';
+        const truncatedWordCount = ratingsText.split(/\s+/).length;
+        console.log(`Truncated input to ${truncatedWordCount} words`);
+    }
+
+    try {
+        console.time('AI Summary Generation Time');
+        const response = await openai.chat.completions.create({
+            model: "gpt-4o-mini",
+            messages: [
+                {
+                    role: "system",
+                    content: `You are a helpful and unbiased assistant that summarizes professor ratings for a student. 
+                    Provide a concise summary highlighting the key strengths (if any), weaknesses (if any), and overall patterns in the ratings.
+                    Focus on teaching quality, course difficulty, and student experience.
+                    Do not write in full sentences, only use point-form.
+                    Frequently use quotes from the ratings to support your summary.
+                    The summary must not be longer than 300 words.`
+                },
+                {
+                    role: "user",
+                    content: `Please summarize these ${ratings.length} professor ratings:\n\n${ratingsText}`
+                }
+            ],
+            max_tokens: 500,
+            temperature: 0.5
+        });
+        
+        console.timeEnd('AI Summary Generation Time');
+        console.log(`Input tokens used: ${response.usage.prompt_tokens}`);
+        console.log(`Output tokens used: ${response.usage.completion_tokens}`);
+        console.log(`Total tokens used: ${response.usage.total_tokens}`);
+        return response.choices[0].message.content;
+    } catch (error) {
+        console.error('Error generating summary:', error.message);
+        return `Error generating summary: ${error.message}`;
+    }
+}
+
 async function getProfData(profURL, callback) {
     console.log(`Making request to: ${profURL}`);
-    
+    console.time('Total Professor Data Search Time');
     try {
-        // Launch a headless browser with optimized settings
-        const browser = await puppeteer.launch({
-            headless: true,
-            args: [
-                '--no-sandbox', 
-                '--disable-setuid-sandbox',
-                '--disable-dev-shm-usage',
-                '--disable-gpu',
-                '--no-first-run',
-                '--no-default-browser-check',
-                '--disable-default-apps',
-                '--disable-extensions',
-                '--disable-background-timer-throttling',
-                '--disable-renderer-backgrounding',
-                '--disable-backgrounding-occluded-windows'
-            ]
-        });
+        // Use optimized browser pool with enhanced resource management
+        const browser = await getBrowser();
         
         // Start timing
         console.time('Rating Load Time');
-        // Create a new page
-        const page = await browser.newPage();
         
-        // Set user agent to avoid detection
-        await page.setUserAgent(headers['User-Agent']);
-        
-        // Block unnecessary resources to speed up page loading
-        await page.setRequestInterception(true);
-        page.on('request', (request) => {
-            const resourceType = request.resourceType();
-            if (resourceType === 'image' || resourceType === 'stylesheet' || resourceType === 'font') {
-                request.abort();
-            } else {
-                request.continue();
-            }
-        });
+        // Create optimized context with built-in resource blocking
+        const context = await createOptimizedContext(browser);
+        const page = await context.newPage();
+        page.setDefaultTimeout(16000);
+        page.setDefaultNavigationTimeout(20000);
         
         // Navigate to the professor's page with faster settings
-        await page.goto(profURL, { waitUntil: 'domcontentloaded', timeout: 15000 });
+        await page.goto(profURL, { waitUntil: 'domcontentloaded', timeout: 20000 });
         
         // Click "Load More Ratings" button until all ratings are loaded - OPTIMIZED VERSION
         // Get total number of ratings from header
         const totalRatings = parseInt(await page.$eval("[class*='TeacherRatingTabs__StyledTab'][class*='selected']", el => el.textContent.match(/\d+/)[0]));
         // Multiply 4 because each rating has 3 more empty ratings. Divide 20 because 20 ratings (5 real ratings + 15 empty ratings) are loaded each time.
-        const maxAttempts = Math.ceil(totalRatings * 4 / 20) || 100; // Fallback to 100 if extraction fails
+        const maxAttempts = Math.ceil(totalRatings * 4 / 20 * 1.5) || 100; // Fallback to 100 if extraction fails
         console.log('Total ratings:', totalRatings);
         
         let loadMoreVisible = true;
-        let previousCommentsCount = 0;
-        let currentCommentsCount = 0;
+        let currentRatingsCount = 0;
         let attemptCount = 0;
         let cachedButtonSelector = null; // Cache the working button selector
         
-        console.log('Starting to load all ratings...');
+        console.log('\nStep 1: Starting to load all ratings...');
         
         // First, try to find and cache the working button selector
         const findButtonSelector = async () => {
@@ -99,8 +142,8 @@ async function getProfData(profURL, callback) {
                 }
             }
             
-            // Fallback to more comprehensive search
-            return await page.evaluateHandle(() => {
+            // Fallback to more comprehensive search and coerce to an element handle
+            const jsHandle = await page.evaluateHandle(() => {
                 const buttons = Array.from(document.querySelectorAll('button'));
                 return buttons.find(el => 
                     el.textContent && (
@@ -110,66 +153,66 @@ async function getProfData(profURL, callback) {
                     )
                 ) || null;
             });
+            return jsHandle.asElement();
         };
         
         while (loadMoreVisible && attemptCount < maxAttempts) {
             try {
                 // Quick count of current ratings
-                currentCommentsCount = await page.$$eval('[class*="Rating-"], [class*="RatingsList"] > div, [class*="Comments"] > div', elements => elements.length);
-                
-                // If no new comments were loaded after the first few attempts, we're done
-                if (attemptCount > 2 && currentCommentsCount === previousCommentsCount) {
-                    console.log(`No new ratings loaded. Final count: ${Math.floor(currentCommentsCount / 4)}`);  // divide by 4 because each rating has 3 empty elements (for some reason?)
-                    loadMoreVisible = false;
-                    break;
-                }
+                currentRatingsCount = await page.$$eval('[class*="Rating-"], [class*="RatingsList"] > div, [class*="Comments"] > div', elements => elements.length);
                 
                 if (attemptCount % 5 === 0) { // Log every 5 attempts to reduce spam
-                    console.log(`Attempt ${attemptCount}: ${Math.floor(currentCommentsCount / 4)} ratings loaded`);  // divide by 4 because each rating has 3 empty elements (for some reason?)
+                    console.log(`Attempt ${attemptCount}: ${Math.floor(currentRatingsCount / 4)} ratings loaded`);  // divide by 4 because each rating has 3 empty elements (for some reason?)
                 }
                 
-                previousCommentsCount = currentCommentsCount;
-                
-                // Find the load more button
-                const loadMoreButton = await findButtonSelector();
-                
-                if (loadMoreButton && loadMoreButton.asElement) {
-                    // Quick visibility check
-                    const isVisible = await page.evaluate(button => {
-                        if (!button) return false;
-                        const rect = button.getBoundingClientRect();
-                        const style = window.getComputedStyle(button);
-                        return rect.width > 0 && rect.height > 0 && 
-                               style.display !== 'none' && 
-                               style.visibility !== 'hidden' && 
-                               style.opacity !== '0';
-                    }, loadMoreButton);
+                // Find and click the load more button (get fresh reference each time)
+                try {
+                    const loadMoreButton = await findButtonSelector();
                     
-                    if (isVisible) {
-                        // Click the button
-                        await loadMoreButton.click();
-                        attemptCount++;
+                    if (loadMoreButton) {
+                        // Quick visibility check
+                        const isVisible = await page.evaluate(button => {
+                            if (!button) return false;
+                            const rect = button.getBoundingClientRect();
+                            const style = window.getComputedStyle(button);
+                            return rect.width > 0 && rect.height > 0 && 
+                                   style.display !== 'none' && 
+                                   style.visibility !== 'hidden' && 
+                                   style.opacity !== '0';
+                        }, loadMoreButton);
                         
-                        // Quick check if more content is loading
-                        try {
-                            await page.waitForFunction(
-                                (expectedCount) => {
-                                    const elements = document.querySelectorAll('[class*="Rating-"], [class*="RatingsList"] > div, [class*="Comments"] > div');
-                                    return elements.length > expectedCount;
-                                },
-                                { timeout: 1500 }, // Short timeout for faster iteration
-                                currentCommentsCount
-                            );
-                        } catch (e) {
-                            // If timeout, continue anyway but wait a bit longer in case content is still loading
-                            await new Promise(resolve => setTimeout(resolve, 300));
+                        if (isVisible) {
+                            // Click the button using page.click to avoid stale element issues
+                            await page.click(cachedButtonSelector || 'button[class*="loadMore"]');
+                            attemptCount++;
+                            
+                            // Quick check if more content is loading
+                            try {
+                                // Wait for any loading indicators to disappear
+                                await page.waitForFunction(
+                                    () => {
+                                        // Check if there are any loading spinners or indicators
+                                        const loadingIndicators = document.querySelectorAll('[class*="loading"], [class*="Loading"], [class*="spinner"], [class*="Spinner"]');
+                                        return loadingIndicators.length === 0;
+                                    },
+                                    { timeout: 2000 }
+                                );
+                                console.log('Load More button clicked')
+                            } catch (e) {
+                                // If timeout, continue anyway but wait a bit longer in case content is still loading
+                                console.log('Load More button clicked but timed out')
+                                await new Promise(resolve => setTimeout(resolve, 300));
+                            }
+                        } else {
+                            console.log('Load More button no longer visible');
+                            loadMoreVisible = false;
                         }
                     } else {
-                        console.log('Load More button no longer visible');
+                        console.log('Load More button not found');
                         loadMoreVisible = false;
                     }
-                } else {
-                    console.log('Load More button not found');
+                } catch (clickError) {
+                    console.log('Error clicking Load More button:', clickError.message);
                     loadMoreVisible = false;
                 }
             } catch (error) {
@@ -188,18 +231,18 @@ async function getProfData(profURL, callback) {
             console.log(`Reached maximum attempts (${maxAttempts}), stopping.`);
         }
 
-        if (totalRatings > Math.floor(currentCommentsCount / 4)) {
+        if (totalRatings > Math.floor(currentRatingsCount / 4)) {
             console.log('WARNING: Not all ratings were successfully loaded')
         }
         
-        console.log(`Finished loading all ratings. Total: ${Math.floor(currentCommentsCount / 4)} ratings in ${attemptCount} attempts`);
+        console.log(`Finished loading all ratings. Total: ${Math.floor(currentRatingsCount / 4)} ratings in ${attemptCount} attempts`);
         
         // Get the page content after all ratings are loaded
         const html = await page.content();
         console.timeEnd('Rating Load Time');
         
-        // Close the browser
-        await browser.close();
+        // Close context (browser is managed by pool)
+        await context.close();
             
             // CSS Selector - Using even more generic selectors to improve robustness
             var wouldTakeAgain = "[class*='TeacherFeedback'] div:nth-child(1) [class*='FeedbackNumber']"
@@ -269,60 +312,43 @@ async function getProfData(profURL, callback) {
             percentage = nodeCleanText(percentage);
             difficultyDecimal = nodeCleanText(difficultyDecimal);
             quality = nodeCleanText(quality);
-            // Log the values for debugging
-            console.log('Would Take Again:', percentage);
-            console.log('Difficulty:', difficultyDecimal);
-            console.log('Quality:', quality);
             
-            // If all values are N/A, log some of the HTML structure for debugging
-            if (percentage === "N/A" && difficultyDecimal === "N/A" && quality === "N/A") {
-                console.log('DEBUG: All values are N/A. Logging HTML structure for debugging:');
-                console.log('HTML Structure Sample:', html.substring(0, 500) + '...');
-                
-                // Log all class names that might be relevant
-                const classNames = [];
-                $('[class*="rating"], [class*="Rating"], [class*="quality"], [class*="Quality"], [class*="difficulty"], [class*="Difficulty"], [class*="would"], [class*="Would"]').each(function() {
-                    classNames.push($(this).attr('class'));
-                });
-                console.log('Relevant class names found:', classNames.slice(0, 10));
-            }
-            
-            // Extract comments
-            const comments = [];
-            // Target the rating cards/comments section
+            // Extract ratings
+            const ratings = [];
+            // Target the rating cards section
             const ratingSelector = "[class*='Rating-'], [class*='RatingsList'] > div, [class*='Comments'] > div";
             
             $(ratingSelector).each(function() {
-                const comment = {};
+                const rating = {};
                 
                 // Extract course code using the specific RateMyProfessors class
                 const courseCode = $(this).find("[class*='RatingHeader__StyledClass']").text().trim();
                 if (courseCode) {
-                    comment.courseCode = courseCode.split(" ")[0];  // Course code is duplicated, only one course code is needed
+                    rating.courseCode = courseCode.split(" ")[0];  // Course code is duplicated, only one course code is needed
                 }
                 
                 // Extract quality rating (1-5)
                 const qualityRating = $(this).find("[class*='RatingValues'] [class*='Quality'], [class*='ratingValues'] [class*='quality']").text().trim();
                 if (qualityRating && /^[1-5](\.\d+)?$/.test(qualityRating)) {
-                    comment.quality = parseFloat(qualityRating);
+                    rating.quality = parseFloat(qualityRating);
                 }
                 
                 // Extract difficulty rating (1-5)
                 const difficultyRating = $(this).find("[class*='RatingValues'] [class*='Difficulty'], [class*='ratingValues'] [class*='difficulty']").text().trim();
                 if (difficultyRating && /^[1-5](\.\d+)?$/.test(difficultyRating)) {
-                    comment.difficulty = parseFloat(difficultyRating);
+                    rating.difficulty = parseFloat(difficultyRating);
                 }
                 
                 // Extract would take again
                 const wouldTakeAgain = $(this).find("[class*='MetaItem']:contains('Would Take Again'), [class*='metaItem']:contains('Would Take Again')").text().trim();
                 if (wouldTakeAgain) {
-                    comment.wouldTakeAgain = wouldTakeAgain.toLowerCase().includes('yes') ? 'yes' : 'no';
+                    rating.wouldTakeAgain = wouldTakeAgain.toLowerCase().includes('yes') ? 'yes' : 'no';
                 }
                 
                 // Extract for credit
                 const forCredit = $(this).find("[class*='MetaItem']:contains('For Credit'), [class*='metaItem']:contains('For Credit')").text().trim();
                 if (forCredit) {
-                    comment.forCredit = forCredit.toLowerCase().includes('yes') ? 'yes' : 'no';
+                    rating.forCredit = forCredit.toLowerCase().includes('yes') ? 'yes' : 'no';
                 }
                 
                 // Extract textbook use
@@ -330,18 +356,18 @@ async function getProfData(profURL, callback) {
                 if (textbook) {
                     const textbookLower = textbook.toLowerCase();
                     if (textbookLower.includes('yes')) {
-                        comment.textbook = 'yes';
+                        rating.textbook = 'yes';
                     } else if (textbookLower.includes('no')) {
-                        comment.textbook = 'no';
+                        rating.textbook = 'no';
                     } else if (textbookLower.includes('n/a')) {
-                        comment.textbook = 'N/A';
+                        rating.textbook = 'N/A';
                     }
                 }
                 
                 // Extract attendance
                 const attendance = $(this).find("[class*='MetaItem']:contains('Attendance'), [class*='metaItem']:contains('Attendance')").text().trim();
                 if (attendance) {
-                    comment.mandatoryAttendance = attendance.toLowerCase().includes('mandatory') ? 'yes' : 'no';
+                    rating.mandatoryAttendance = attendance.toLowerCase().includes('mandatory') ? 'yes' : 'no';
                 }
                 
                 // Extract grade
@@ -349,7 +375,7 @@ async function getProfData(profURL, callback) {
                 if (grade) {
                     const gradeMatch = grade.match(/[A-F][+-]?/);
                     if (gradeMatch) {
-                        comment.gradeReceived = gradeMatch[0];
+                        rating.gradeReceived = gradeMatch[0];
                     }
                 }
                 
@@ -360,29 +386,34 @@ async function getProfData(profURL, callback) {
                 });
                 tags.shift()  // Remove first element because the first element in tags is a connected string of all the tags
                 if (tags.length > 0) {
-                    comment.tags = tags;
+                    rating.tags = tags;
                 }
                 
                 // Extract comment text
                 const commentText = $(this).find("[class*='Comments'], [class*='comments']").text().trim();
                 if (commentText) {
-                    comment.comment = nodeCleanText(commentText);
+                    rating.comment = nodeCleanText(commentText);
                 }
                 
                 // Only add if we have at least some data
-                if (Object.keys(comment).length > 0) {
-                    comments.push(comment);
+                if (Object.keys(rating).length > 0) {
+                    ratings.push(rating);
                 }
             });
             
-            // Sort comments by most recent first (assuming they're already in that order from scraping)
+            // Generate summary of all ratings using GPT-4o-mini
+            console.log('\nStep 2: Generating AI summary of ratings...');
+            const summary = await summarizeRatings(ratings);
+            
+            // Sort ratings by most recent first (assuming they're already in that order from scraping)
             callback({
                 percentage: percentage,
                 difficulty: difficultyDecimal,
                 quality: quality,
-                comments: comments
+                ratings: ratings,
+                summary: summary
             });
-        
+        console.timeEnd('Total Professor Data Search Time');
 
     } catch (error) {
         console.error('Error fetching professor data:', error.message);
