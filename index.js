@@ -9,12 +9,27 @@ const cors = require('cors');
 
 app.use(cors());
 
-// Serve static files from the gui directory
-app.use(express.static(path.join(__dirname, 'gui')));
+// Serve static files from the React build directory
+const clientPath = path.join(__dirname, 'dist');
+
+app.use(express.static(clientPath));
 
 // Serve the main application at root path
 app.get('/app', (req, res) => {
-    res.sendFile(path.join(__dirname, 'gui', 'index.html'));
+    res.sendFile(path.join(__dirname, 'dist', 'index.html'));
+});
+
+// React Router support - serve index.html for all non-API routes
+app.get('*', (req, res) => {
+    // Skip API routes
+    if (req.path.startsWith('/professor') || 
+        req.path.startsWith('/course') || 
+        req.path.startsWith('/health') || 
+        req.path.startsWith('/status')) {
+        return;
+    }
+    
+    res.sendFile(path.join(__dirname, 'dist', 'index.html'));
 });
 
 app.get('/', function (req, res) {
