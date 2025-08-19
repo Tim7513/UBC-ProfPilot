@@ -9,12 +9,12 @@ const cors = require('cors');
 
 app.use(cors());
 
-// Serve static files from the client directory
-app.use(express.static(path.join(__dirname, 'client')));
+// Serve static files from the gui directory
+app.use(express.static(path.join(__dirname, 'gui')));
 
 // Serve the main application at root path
 app.get('/app', (req, res) => {
-    res.sendFile(path.join(__dirname, 'client', 'index.html'));
+    res.sendFile(path.join(__dirname, 'gui', 'index.html'));
 });
 
 app.get('/', function (req, res) {
