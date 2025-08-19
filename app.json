@@ -1,0 +1,32 @@
+{
+  "name": "Prof Pilot",
+  "description": "UBC Professor & Course Explorer with AI-powered insights",
+  "keywords": ["ubc", "professors", "reviews", "ai", "education"],
+  "website": "https://github.com/your-username/ubc-prof-pilot",
+  "repository": "https://github.com/your-username/ubc-prof-pilot",
+  "stack": "heroku-22",
+  "buildpacks": [
+    {
+      "url": "heroku/nodejs"
+    }
+  ],
+  "formation": {
+    "web": {
+      "quantity": 1,
+      "size": "basic"
+    }
+  },
+  "env": {
+    "OPENAI_API_KEY": {
+      "description": "OpenAI API key for AI-powered review summarization",
+      "required": true
+    },
+    "NODE_ENV": {
+      "description": "Node environment",
+      "value": "production"
+    }
+  },
+  "scripts": {
+    "postdeploy": "echo 'Prof Pilot deployed successfully!'"
+  }
+} 

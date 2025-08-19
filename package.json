@@ -5,7 +5,14 @@
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
-    "postinstall": "npx playwright install webkit"
+    "dev": "node index.js",
+    "postinstall": "npx playwright install webkit",
+    "build": "echo 'No build step required'",
+    "test": "echo 'No tests specified'"
+  },
+  "engines": {
+    "node": ">=16.0.0",
+    "npm": ">=7.0.0"
   },
   "keywords": [],
   "author": "",
