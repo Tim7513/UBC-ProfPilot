@@ -1,8 +1,5 @@
 # 🚀 Prof Pilot - UBC Professor & Course Explorer
 
-[![Status](https://img.shields.io/badge/Status-Active_Development-green.svg)](https://github.com/yourusername/ubc-prof-pilot)
-[![License](https://img.shields.io/badge/License-ISC-blue.svg)](LICENSE)
-[![Deployed on Vercel](https://img.shields.io/badge/Deployed%20on-Vercel-black.svg)](https://prof-pilot.vercel.app)
 
 Prof Pilot is a full-stack web application that empowers UBC students to make informed decisions about their courses and professors. Using real-time data from RateMyProfessors, combined with AI-powered insights, students can discover professor ratings, course difficulty, and detailed review analysis.
 
