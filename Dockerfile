@@ -1,56 +1,22 @@
-# Use Node.js 18 LTS as base image
-FROM node:18-slim
+# Use the official Playwright image which contains browsers and system deps.
+FROM mcr.microsoft.com/playwright:v1.54.2-noble
 
-# Set working directory
+# Set working dir
 WORKDIR /app
 
-# Install system dependencies for Playwright
-RUN apt-get update && apt-get install -y \
-    wget \
-    gnupg \
-    ca-certificates \
-    fonts-liberation \
-    libasound2 \
-    libatk-bridge2.0-0 \
-    libatk1.0-0 \
-    libatspi2.0-0 \
-    libcups2 \
-    libdbus-1-3 \
-    libdrm2 \
-    libgtk-3-0 \
-    libnspr4 \
-    libnss3 \
-    libxcomposite1 \
-    libxdamage1 \
-    libxfixes3 \
-    libxrandr2 \
-    libxss1 \
-    libxtst6 \
-    xdg-utils \
-    && rm -rf /var/lib/apt/lists/*
-
-# Copy package files
+# Copy package files first (for caching)
 COPY package*.json ./
 
-# Install Node.js dependencies
+# Install production dependencies (use `npm ci` for package-lock.json)
 RUN npm ci --only=production
 
-# Install Playwright browsers
+# Delete playwright browsers installed previously
+RUN rm -r $PLAYWRIGHT_BROWSERS_PATH
+# Install webkit again for the correct OS
 RUN npx playwright install webkit
 
-# Copy application code
+# Copy the rest of the app
 COPY . .
 
-# Create non-root user for security
-RUN useradd -m -u 1001 nodeuser && chown -R nodeuser:nodeuser /app
-USER nodeuser
-
-# Expose port
-EXPOSE 3000
-
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:3000/ || exit 1
-
-# Start the application
+# Start command
 CMD ["npm", "start"]
