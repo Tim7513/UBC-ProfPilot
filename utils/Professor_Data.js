@@ -86,10 +86,10 @@ async function getProfData(profURL, callback) {
     try {
         // Use optimized browser pool with enhanced resource management
         const browser = await getBrowser();
-        
+
         // Start timing
         console.time('Rating Load Time');
-        
+
         // Create optimized context with built-in resource blocking
         const context = await createOptimizedContext(browser);
         const page = await context.newPage();

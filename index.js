@@ -9,29 +9,7 @@ const cors = require('cors');
 
 app.use(cors());
 
-// Serve static files from the React build directory
-const clientPath = path.join(__dirname, 'dist');
-
-app.use(express.static(clientPath));
-
-// Serve the main application at root path
-app.get('/app', (req, res) => {
-    res.sendFile(path.join(__dirname, 'dist', 'index.html'));
-});
-
-// React Router support - serve index.html for all non-API routes
-app.get('*', (req, res) => {
-    // Skip API routes
-    if (req.path.startsWith('/professor') || 
-        req.path.startsWith('/course') || 
-        req.path.startsWith('/health') || 
-        req.path.startsWith('/status')) {
-        return;
-    }
-    
-    res.sendFile(path.join(__dirname, 'dist', 'index.html'));
-});
-
+// API Routes - these must come BEFORE static file serving
 app.get('/', function (req, res) {
     res.status(200).json({
         status: 'ok',
@@ -43,7 +21,11 @@ app.get('/', function (req, res) {
 
 // Health check endpoint - simple and reliable
 app.get('/health', function (req, res) {
-    res.status(200).send('OK');
+    res.status(200).json({
+        status: 'OK',
+        message: 'Server is healthy',
+        timestamp: new Date().toISOString()
+    });
 });
 
 // More detailed health check
@@ -60,18 +42,17 @@ app.get('/status', function (req, res) {
     });
 });
 
-
 app.get('/professor', function (req, res) {
     const fname = req.query.fname;
     const lname = req.query.lname;
     const university = req.query.university;
-    
+
     if (!fname || !lname || !university) {
         return res.status(400).json({
             error: 'Missing required parameters: fname, lname, and university are required'
         });
     }
-    
+
     professorURL(fname, lname, university, (urlResponse) => {
         if (!urlResponse || !urlResponse.URL) {
             return res.status(404).json({
@@ -79,9 +60,9 @@ app.get('/professor', function (req, res) {
                 details: urlResponse ? urlResponse.error : 'No response from URL generator'
             });
         }
-        
+
         console.log(`Fetching data for: ${urlResponse.URL}`);
-        
+
         professorData(urlResponse.URL, (data) => {
             if (data.error) {
                 console.error('Error from professorData:', data.error);
@@ -91,7 +72,7 @@ app.get('/professor', function (req, res) {
                     status: data.status
                 });
             }
-            
+
             res.json({
                 URL: urlResponse.URL,
                 first_name: urlResponse.lname,  // First/last names are swapped
@@ -105,22 +86,19 @@ app.get('/professor', function (req, res) {
             });
         });
     });
-    
-
-
 });
 
 app.get('/course', function (req, res) {
     const courseName = req.query.course_name;
     const departmentNumber = req.query.department_number;
     const universityNumber = req.query.university_number;
-    
+
     if (!courseName || !departmentNumber || !universityNumber) {
         return res.status(400).json({
             error: 'Missing required parameters: course_name, department_number, and university_number are required'
         });
     }
-    
+
     findProfessorsForCourse(courseName, departmentNumber, universityNumber, (error, professors) => {
         if (error) {
             console.error('Error finding professors for course:', error.message);
@@ -129,7 +107,7 @@ app.get('/course', function (req, res) {
                 details: error.message
             });
         }
-        
+
         if (!professors || professors.length === 0) {
             return res.status(404).json({
                 error: 'No professors found teaching the specified course',
@@ -138,7 +116,7 @@ app.get('/course', function (req, res) {
                 university_number: universityNumber
             });
         }
-        
+
         // Format the response to include professor names and relevant information
         const response = {
             course_name: courseName,
@@ -159,6 +137,28 @@ app.get('/course', function (req, res) {
     });
 });
 
+// Serve static files from the React build directory - this must come AFTER API routes
+const clientPath = path.join(__dirname, 'dist');
+app.use(express.static(clientPath));
+
+// Serve the main application at root path for React Router
+app.get('/app', (req, res) => {
+    res.sendFile(path.join(__dirname, 'dist', 'index.html'));
+});
+
+// React Router support - serve index.html for all non-API routes
+app.get('*', (req, res) => {
+    // Skip API routes
+    if (req.path.startsWith('/professor') ||
+        req.path.startsWith('/course') ||
+        req.path.startsWith('/health') ||
+        req.path.startsWith('/status')) {
+        return;
+    }
+
+    res.sendFile(path.join(__dirname, 'dist', 'index.html'));
+});
+
 const PORT = process.env.PORT || 3000;
 
 // Log startup info
@@ -177,7 +177,7 @@ const server = app.listen(PORT, '0.0.0.0', () => {
 // Graceful shutdown handling
 const gracefulShutdown = async (signal) => {
     console.log(`\nReceived ${signal}. Starting graceful shutdown...`);
-    
+
     // Stop accepting new connections
     server.close(async (err) => {
         if (err) {
@@ -185,13 +185,13 @@ const gracefulShutdown = async (signal) => {
         } else {
             console.log('HTTP server closed');
         }
-        
+
         try {
             // Close all browser instances
             console.log('Closing browser instances...');
             await closeBrowser();
             console.log('Browser cleanup completed');
-            
+
             console.log('Graceful shutdown completed');
             process.exit(0);
         } catch (error) {
@@ -199,7 +199,7 @@ const gracefulShutdown = async (signal) => {
             process.exit(1);
         }
     });
-    
+
     // Force exit if graceful shutdown takes too long
     setTimeout(() => {
         console.error('Graceful shutdown timed out, forcing exit');
@@ -221,3 +221,5 @@ process.on('unhandledRejection', async (reason, promise) => {
     console.error('Unhandled Rejection at:', promise, 'reason:', reason);
     await gracefulShutdown('unhandledRejection');
 });
+
+module.exports = app;
