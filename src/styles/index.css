@@ -1,0 +1,74 @@
+/* Modern 2025 UBC Prof Pilot - Additional Component Styles */
+
+/* Import the main App.css for base styles */
+@import './App.css';
+
+/* Component-specific overrides and additional styles */
+
+/* Header component styles */
+.modern-header {
+    /* Already defined in Header.css */
+}
+
+/* Search Panel component styles */
+.search-panel {
+    /* Inherits from SearchPanel.css */
+}
+
+/* Results Panel component styles */
+.results-panel {
+    /* Inherits from ResultsPanel.css */
+}
+
+/* Results Grid - Card Layout */
+.results-grid {
+    /* Already defined in App.css */
+}
+
+/* Modern Card Base */
+.modern-card {
+    /* Already defined in App.css */
+}
+
+/* Button component styles */
+.modern-btn {
+    /* Already defined in App.css */
+}
+
+/* Utility classes for animations */
+.fade-in {
+    /* Already defined in App.css */
+}
+
+.slide-in {
+    /* Already defined in App.css */
+}
+
+.scale-in {
+    /* Already defined in App.css */
+}
+
+/* Loading states */
+.loading-shimmer {
+    /* Already defined in App.css */
+}
+
+/* Focus styles for accessibility */
+*:focus {
+    outline: 2px solid var(--primary-400);
+    outline-offset: 2px;
+}
+
+/* Print styles */
+@media print {
+    .modern-header,
+    .search-panel {
+        background: white !important;
+        box-shadow: none !important;
+        border: 1px solid #e5e7eb !important;
+    }
+
+    body {
+        background: white !important;
+    }
+}

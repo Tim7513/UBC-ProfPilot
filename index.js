@@ -125,8 +125,8 @@ app.get('/course', function (req, res) {
             professors_count: professors.length,
             professors: professors.map(prof => ({
                 name: prof.name,
-                first_name: prof.lastName,  // First/last names are swapped
-                last_name: prof.firstName,
+                first_name: prof.firstName || prof.first_name || '',
+                last_name: prof.lastName || prof.last_name || '',
                 department: prof.department,
                 university: prof.university,
                 profile_url: prof.profileURL,
@@ -162,7 +162,7 @@ app.get('*', (req, res) => {
 const PORT = process.env.PORT || 3000;
 
 // Log startup info
-console.log('🚀 Starting Prof Pilot server...');
+console.log('🚀 Starting ProfPilot server...');
 console.log('📦 Environment:', process.env.NODE_ENV || 'development');
 console.log('🔑 OpenAI API Key:', process.env.OPENAI_API_KEY ? 'Set ✅' : 'Missing ❌');
 console.log('🌐 Port:', PORT);
@@ -171,7 +171,7 @@ const server = app.listen(PORT, '0.0.0.0', () => {
     console.log(`✅ Server running on port ${PORT}`);
     console.log(`🏥 Health check: http://localhost:${PORT}/health`);
     console.log(`🎓 App: http://localhost:${PORT}/app`);
-    console.log('🎉 Prof Pilot is ready!');
+    console.log('🎉 ProfPilot is ready!');
 });
 
 // Graceful shutdown handling

@@ -1,0 +1,86 @@
+/* Modern Course Search Form Styles - RMP Theme */
+
+.course-search-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+}
+
+@media (max-width: 640px) {
+    .form-grid {
+        grid-template-columns: 1fr;
+        gap: 0.75rem;
+    }
+}
+
+.university-badge {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1rem;
+    background: linear-gradient(135deg, var(--rmp-red-50), var(--rmp-orange-50));
+    border: 1px solid var(--rmp-red-200);
+    border-radius: 8px;
+    color: var(--rmp-red-700);
+    font-size: 0.875rem;
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+
+.university-badge:hover {
+    background: linear-gradient(135deg, var(--rmp-red-100), var(--rmp-orange-100));
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(239, 68, 68, 0.1);
+}
+
+.university-badge i {
+    color: var(--rmp-red-500);
+}
+
+/* Modern input styling */
+.modern-input .input-field-control {
+    border-radius: 10px;
+    border: 2px solid var(--gray-200);
+    background: rgba(255, 255, 255, 0.98);
+    transition: all 0.2s ease;
+}
+
+.modern-input .input-field-control:focus {
+    border-color: var(--rmp-red-400);
+    background: white;
+    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
+}
+
+.modern-input .input-label {
+    color: var(--gray-800);
+    font-weight: 600;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .course-search-form {
+        gap: 1rem;
+    }
+
+    .university-badge {
+        padding: 0.625rem 0.875rem;
+        font-size: 0.8rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .university-badge {
+        padding: 0.5rem 0.75rem;
+        font-size: 0.75rem;
+        flex-direction: column;
+        text-align: center;
+        gap: 0.25rem;
+    }
+}

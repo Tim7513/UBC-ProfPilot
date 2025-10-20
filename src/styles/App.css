@@ -1,6 +1,6 @@
-/* Import existing styles from the original GUI */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-@import url('https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css');
+/* Modern 2025 UBC Prof Pilot Styles */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+@import url('https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css');
 
 /* Reset and Base Styles */
 * {
@@ -9,12 +9,104 @@
     box-sizing: border-box;
 }
 
+:root {
+    /* RateMyProf Color Palette - Modern RMP Branding */
+    --rmp-red-50: #fef2f2;
+    --rmp-red-100: #fee2e2;
+    --rmp-red-200: #fecaca;
+    --rmp-red-300: #fca5a5;
+    --rmp-red-400: #f87171;
+    --rmp-red-500: #ef4444;
+    --rmp-red-600: #dc2626;
+    --rmp-red-700: #b91c1c;
+    --rmp-red-800: #991b1b;
+    --rmp-red-900: #7f1d1d;
+
+    /* Orange accent colors */
+    --rmp-orange-50: #fff7ed;
+    --rmp-orange-100: #ffedd5;
+    --rmp-orange-200: #fed7aa;
+    --rmp-orange-300: #fdba74;
+    --rmp-orange-400: #fb923c;
+    --rmp-orange-500: #f97316;
+    --rmp-orange-600: #ea580c;
+    --rmp-orange-700: #c2410c;
+    --rmp-orange-800: #9a3412;
+    --rmp-orange-900: #7c2d12;
+
+    /* Neutral Colors */
+    --gray-50: #f9fafb;
+    --gray-100: #f3f4f6;
+    --gray-200: #e5e7eb;
+    --gray-300: #d1d5db;
+    --gray-400: #9ca3af;
+    --gray-500: #6b7280;
+    --gray-600: #4b5563;
+    --gray-700: #374151;
+    --gray-800: #1f2937;
+    --gray-900: #111827;
+
+    /* Glass morphism variables */
+    --glass-bg: rgba(255, 255, 255, 0.9);
+    --glass-border: rgba(255, 255, 255, 0.25);
+    --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+}
+
 body {
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, #dc2626 0%, #b91c1c 50%, #991b1b 100%);
+    background-size: 400% 400%;
+    animation: gradientShift 15s ease-in-out infinite;
     min-height: 100vh;
-    color: #333;
+    color: var(--gray-900);
     line-height: 1.6;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+}
+
+@keyframes gradientShift {
+    0%, 100% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+}
+
+/* Liquid Background Elements */
+body::before,
+body::after {
+    content: '';
+    position: fixed;
+    width: 60vmax;
+    height: 60vmax;
+    filter: blur(80px);
+    opacity: 0.3;
+    z-index: -1;
+    animation-duration: 20s;
+    animation-iteration-count: infinite;
+    animation-timing-function: ease-in-out;
+}
+
+body::before {
+    left: -10vmax;
+    top: -10vmax;
+    background: radial-gradient(circle, rgba(239, 68, 68, 0.3), transparent 70%);
+    animation-name: blobFloat1;
+}
+
+body::after {
+    right: -10vmax;
+    bottom: -10vmax;
+    background: radial-gradient(circle, rgba(249, 115, 22, 0.25), transparent 70%);
+    animation-name: blobFloat2;
+}
+
+@keyframes blobFloat1 {
+    0%, 100% { transform: translate(0, 0) scale(1); }
+    33% { transform: translate(30vmax, 20vmax) scale(1.2); }
+    66% { transform: translate(-20vmax, -15vmax) scale(0.9); }
+}
+
+@keyframes blobFloat2 {
+    0%, 100% { transform: translate(0, 0) scale(1.1); }
+    33% { transform: translate(-25vmax, -20vmax) scale(0.8); }
+    66% { transform: translate(15vmax, 25vmax) scale(1.15); }
 }
 
 /* App Container */
@@ -22,11 +114,13 @@ body {
     min-height: 100vh;
     display: flex;
     flex-direction: column;
+    position: relative;
+    z-index: 1;
 }
 
 /* Main Container */
 .main-container {
-    max-width: 1400px;
+    max-width: 1600px;
     margin: 0 auto;
     padding: 2rem;
     display: flex;
@@ -38,39 +132,516 @@ body {
 /* Content Area */
 .content-area {
     display: grid;
-    grid-template-columns: 1fr 350px;
+    grid-template-columns: 1fr 400px;
     gap: 2rem;
     flex: 1;
 }
 
-/* Utility Classes */
-.hidden {
-    display: none !important;
+/* Modern Card Base Styles */
+.modern-card {
+    background: var(--glass-bg);
+    backdrop-filter: saturate(140%) blur(12px);
+    border: 1px solid var(--glass-border);
+    border-radius: 16px;
+    box-shadow: var(--glass-shadow);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
 }
 
+.modern-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+}
+
+.modern-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
+    border-color: rgba(255, 255, 255, 0.3);
+}
+
+/* Results Grid - Modern Card Layout */
+.results-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 1.5rem;
+    padding: 0.5rem;
+}
+
+@media (min-width: 1024px) {
+    .results-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+@media (min-width: 768px) and (max-width: 1023px) {
+    .results-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 767px) {
+    .results-grid {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+        padding: 0;
+    }
+}
+
+/* Modern Card Content - Well Organized Layout */
+.card-content {
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+/* Header Section - Clean Professor Info Layout */
+.card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 1.5rem;
+    gap: 1rem;
+}
+
+.professor-info {
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+    flex: 1;
+}
+
+.professor-name-section {
+    flex: 1;
+}
+
+.professor-name {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--gray-900);
+    margin: 0;
+    line-height: 1.3;
+}
+
+.professor-title {
+    font-size: 0.875rem;
+    color: var(--gray-600);
+    margin: 0.25rem 0 0 0;
+    font-weight: 500;
+}
+
+.professor-type-badge {
+    flex-shrink: 0;
+}
+
+.type-badge {
+    background: var(--rmp-red-100);
+    color: var(--rmp-red-700);
+    padding: 0.375rem 0.75rem;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+/* Overall Rating - Prominently Displayed */
+.overall-rating {
+    text-align: center;
+    background: var(--gray-50);
+    padding: 0.75rem;
+    border-radius: 8px;
+    border: 2px solid var(--gray-200);
+    flex-shrink: 0;
+}
+
+.rating-number {
+    font-size: 2rem;
+    font-weight: 800;
+    line-height: 1;
+    margin-bottom: 0.25rem;
+}
+
+.rating-number.excellent { color: #10b981; }
+.rating-number.good { color: #f59e0b; }
+.rating-number.poor { color: #ef4444; }
+
+.rating-label {
+    font-size: 0.75rem;
+    color: var(--gray-600);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+/* Statistics Section - Well Organized Grid */
+.statistics-section {
+    margin-bottom: 1.5rem;
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.75rem;
+}
+
+.stat-card {
+    background: var(--gray-50);
+    padding: 0.75rem;
+    border-radius: 8px;
+    text-align: center;
+    transition: all 0.2s ease;
+    border: 1px solid var(--gray-200);
+}
+
+.stat-card:hover {
+    background: var(--rmp-red-50);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(239, 68, 68, 0.1);
+}
+
+.stat-icon {
+    color: var(--rmp-red-500);
+    font-size: 1.125rem;
+    margin-bottom: 0.5rem;
+}
+
+.stat-content {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.stat-number {
+    font-size: 1.125rem;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.stat-number.easy { color: #10b981; }
+.stat-number.moderate { color: #f59e0b; }
+.stat-number.hard { color: #ef4444; }
+.stat-number.positive { color: #10b981; }
+.stat-number.negative { color: #ef4444; }
+.stat-number.neutral { color: var(--gray-500); }
+.stat-number.reviews { color: var(--rmp-red-600); }
+
+.stat-label {
+    font-size: 0.75rem;
+    color: var(--gray-600);
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+/* Tags Section - Modern Pill Design */
+.tags-section {
+    margin-bottom: 1.5rem;
+}
+
+.tags-label {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--gray-700);
+    margin-bottom: 0.5rem;
+}
+
+.tags-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.tag-pill {
+    background: var(--rmp-red-100);
+    color: var(--rmp-red-700);
+    padding: 0.375rem 0.75rem;
+    border-radius: 16px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    border: 1px solid var(--rmp-red-200);
+    transition: all 0.2s ease;
+}
+
+.tag-pill:hover {
+    background: var(--rmp-red-200);
+    transform: translateY(-1px);
+}
+
+/* Action Section - Clean and Accessible */
+.action-section {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: auto;
+    padding-top: 1rem;
+    border-top: 1px solid var(--gray-200);
+}
+
+.action-btn {
+    background: var(--rmp-red-500);
+    color: white;
+    border: none;
+    padding: 0.625rem 1rem;
+    border-radius: 8px;
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    text-decoration: none;
+}
+
+.action-btn:hover {
+    background: var(--rmp-red-600);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3);
+}
+
+.rating-display {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: var(--gray-100);
+    padding: 0.5rem 0.75rem;
+    border-radius: 6px;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--gray-700);
+}
+
+.rating-display i {
+    color: #fbbf24;
+}
+
+/* Modern Button Styles - RMP Theme */
+.modern-btn {
+    background: linear-gradient(135deg, var(--rmp-red-500), var(--rmp-red-600));
+    color: white;
+    border: none;
+    padding: 0.75rem 1.5rem;
+    border-radius: 12px;
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    box-shadow: 0 2px 8px rgba(239, 68, 68, 0.2);
+}
+
+.modern-btn:hover {
+    background: linear-gradient(135deg, var(--rmp-red-600), var(--rmp-red-700));
+    transform: translateY(-1px);
+    box-shadow: 0 4px 16px rgba(239, 68, 68, 0.3);
+}
+
+.modern-btn:active {
+    transform: translateY(0);
+}
+
+/* Search Panel Styling */
+.search-panel {
+    background: var(--glass-bg);
+    backdrop-filter: saturate(140%) blur(12px);
+    border: 1px solid var(--glass-border);
+    border-radius: 16px;
+    box-shadow: var(--glass-shadow);
+    padding: 2rem;
+}
+
+/* Utility Classes */
 .fade-in {
-    animation: fadeIn 0.3s ease-in-out;
+    animation: fadeIn 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 @keyframes fadeIn {
-    from { opacity: 0; transform: translateY(10px); }
-    to { opacity: 1; transform: translateY(0); }
+    from {
+        opacity: 0;
+        transform: translateY(20px) scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+.slide-in {
+    animation: slideIn 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateX(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+.scale-in {
+    animation: scaleIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes scaleIn {
+    from {
+        opacity: 0;
+        transform: scale(0.9);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
 }
 
 /* Responsive Design */
 @media (max-width: 1024px) {
     .content-area {
         grid-template-columns: 1fr;
-        gap: 1rem;
+        gap: 1.5rem;
     }
-    
+
     .main-container {
-        padding: 1rem;
+        padding: 1.5rem;
+    }
+
+    .search-panel {
+        padding: 1.5rem;
     }
 }
 
 @media (max-width: 768px) {
     .main-container {
+        padding: 1rem;
+    }
+
+    .search-panel {
+        padding: 1rem;
+    }
+
+    .card-content {
+        padding: 1rem;
+    }
+
+    .results-grid {
+        gap: 0.75rem;
+    }
+}
+
+@media (max-width: 640px) {
+    .stats-grid {
+        grid-template-columns: 1fr;
+        gap: 0.5rem;
+    }
+
+    .professor-info {
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+
+    .professor-name {
+        font-size: 1.125rem;
+    }
+
+    .overall-rating {
+        order: -1;
+        margin-bottom: 0.5rem;
+    }
+
+    .rating-number {
+        font-size: 1.75rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .main-container {
         padding: 0.5rem;
     }
+
+    .results-grid {
+        gap: 0.5rem;
+    }
+
+    .card-content {
+        padding: 1rem;
+    }
+
+    .card-header {
+        flex-direction: column;
+        gap: 0.75rem;
+        align-items: stretch;
+    }
+
+    .professor-info {
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .professor-name {
+        font-size: 1rem;
+    }
+
+    .professor-title {
+        font-size: 0.8rem;
+    }
+
+    .overall-rating {
+        text-align: center;
+        margin: 0;
+    }
+
+    .rating-number {
+        font-size: 1.5rem;
+    }
+
+    .action-section {
+        flex-direction: column;
+        gap: 0.75rem;
+        align-items: stretch;
+    }
+
+    .action-btn {
+        justify-content: center;
+    }
+
+    .tags-container {
+        gap: 0.375rem;
+    }
+
+    .tag-pill {
+        font-size: 0.7rem;
+        padding: 0.25rem 0.5rem;
+    }
+}
+
+/* Focus styles for accessibility */
+.modern-btn:focus,
+.action-btn:focus,
+.stat-card:focus {
+    outline: 2px solid var(--rmp-red-400);
+    outline-offset: 2px;
+}
+
+/* Loading states */
+.loading-shimmer {
+    background: linear-gradient(90deg, var(--gray-200) 25%, var(--gray-100) 50%, var(--gray-200) 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+}
+
+@keyframes shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
 } 

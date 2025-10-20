@@ -18,8 +18,7 @@ const SearchPanel = ({
 }) => {
     const [courseData, setCourseData] = useState({
         courseName: '',
-        courseNumber: '',
-        universityNumber: ''
+        courseNumber: ''
     });
     
     const [professorData, setProfessorData] = useState({
@@ -40,7 +39,7 @@ const SearchPanel = ({
     const handleSearchTypeChange = useCallback((newType) => {
         onSearchTypeChange(newType);
         // Reset form data when switching search types
-        setCourseData({ courseName: '', courseNumber: '', universityNumber: '' });
+        setCourseData({ courseName: '', courseNumber: '' });
         setProfessorData({ firstName: '', lastName: '', university: '' });
     }, [onSearchTypeChange]);
 

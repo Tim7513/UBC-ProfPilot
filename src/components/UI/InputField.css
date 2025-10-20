@@ -1,0 +1,134 @@
+/* Modern Input Field Styles - RMP Theme */
+
+/* Import RMP color variables */
+.input-field {
+    margin-bottom: 1.5rem;
+}
+
+.input-label {
+    display: block;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--gray-700);
+    margin-bottom: 0.5rem;
+    letter-spacing: 0.025em;
+}
+
+.required-indicator {
+    color: var(--rmp-red-500);
+    margin-left: 0.25rem;
+}
+
+.input-field-control {
+    width: 100%;
+    padding: 0.875rem 1rem;
+    font-size: 1rem;
+    font-family: inherit;
+    color: var(--gray-900);
+    background: rgba(255, 255, 255, 0.95);
+    border: 2px solid transparent;
+    border-radius: 12px;
+    outline: none;
+    transition: all 0.2s ease;
+    backdrop-filter: blur(8px);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.input-field-control:focus {
+    background: white;
+    border-color: var(--rmp-red-400);
+    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1), 0 4px 12px rgba(0, 0, 0, 0.1);
+    transform: translateY(-1px);
+}
+
+.input-field-control:hover:not(:focus) {
+    border-color: var(--gray-300);
+    background: white;
+}
+
+.input-field-control::placeholder {
+    color: var(--gray-400);
+    opacity: 1;
+}
+
+/* Error states */
+.input-error {
+    border-color: var(--rmp-red-400) !important;
+    background: var(--rmp-red-50) !important;
+}
+
+.input-error-message {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+    font-size: 0.75rem;
+    color: var(--rmp-red-600);
+}
+
+.input-error-message i {
+    font-size: 0.875rem;
+}
+
+/* Help text */
+.input-help-text {
+    margin-top: 0.5rem;
+    font-size: 0.75rem;
+    color: var(--gray-500);
+    line-height: 1.4;
+}
+
+/* Disabled state */
+.input-disabled {
+    background: var(--gray-100) !important;
+    color: var(--gray-400) !important;
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+/* Focus styles for accessibility */
+.input-field-control:focus {
+    outline: 2px solid var(--rmp-red-400);
+    outline-offset: 2px;
+}
+
+/* Modern form group styling */
+.form-group-modern {
+    position: relative;
+}
+
+.form-group-modern .input-field-control {
+    padding-left: 3rem;
+}
+
+.form-group-modern::before {
+    content: '';
+    position: absolute;
+    left: 1rem;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 20px;
+    height: 20px;
+    background: var(--rmp-red-100);
+    border-radius: 50%;
+    z-index: 1;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .input-field-control {
+        padding: 0.75rem 0.875rem;
+        font-size: 0.875rem;
+    }
+
+    .input-label {
+        font-size: 0.8rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .input-field-control {
+        padding: 0.625rem 0.75rem;
+        font-size: 0.8rem;
+    }
+}

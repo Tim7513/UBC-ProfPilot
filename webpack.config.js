@@ -40,7 +40,7 @@ module.exports = (env, argv) => {
         plugins: [
             new HtmlWebpackPlugin({
                 template: './public/index.html',
-                title: 'Prof Pilot - UBC Professor & Course Explorer'
+                title: 'ProfPilot - UBC Professor & Course Explorer'
             })
         ],
         resolve: {

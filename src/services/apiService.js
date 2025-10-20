@@ -33,19 +33,21 @@ const apiRequest = async (url, options = {}) => {
 };
 
 /**
- * Search for professors by course
+ * Search for professors by UBC course
  * @param {Object} searchData - Course search parameters
  * @param {string} searchData.courseName - Course department (e.g., "CPSC")
  * @param {string} searchData.courseNumber - Course number (e.g., "110")
- * @param {string} searchData.universityNumber - University ID (e.g., "1413")
  * @returns {Promise<Array>} Array of professors with details
  */
 export const searchByCourse = async (searchData) => {
-    const { courseName, courseNumber, universityNumber } = searchData;
-    
-    if (!courseName || !courseNumber || !universityNumber) {
+    const { courseName, courseNumber } = searchData;
+
+    if (!courseName || !courseNumber) {
         throw new Error('Please fill in all course search fields');
     }
+
+    // UBC's university ID is 1413
+    const universityNumber = '1413';
 
     // First, get the list of professors for the course
     const courseUrl = `${API_BASE_URL}/course?course_name=${encodeURIComponent(courseName)}&department_number=${encodeURIComponent(courseNumber)}&university_number=${encodeURIComponent(universityNumber)}`;

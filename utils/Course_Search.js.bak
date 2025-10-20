@@ -1,0 +1,287 @@
+const axios = require('axios');
+const cheerio = require('cheerio');
+// const { getBrowser, createOptimizedContext } = require('./browser'); // Temporarily disabled for testing
+
+// Add headers to mimic a real browser request
+const headers = {
+    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+    'Accept-Language': 'en-US,en;q=0.9',
+    'Accept-Encoding': 'gzip, deflate, br',
+    'DNT': '1',
+    'Connection': 'keep-alive',
+    'Upgrade-Insecure-Requests': '1',
+    'Sec-Fetch-Dest': 'document',
+    'Sec-Fetch-Mode': 'navigate',
+    'Sec-Fetch-Site': 'none',
+    'Sec-Fetch-User': '?1',
+    'Cache-Control': 'max-age=0',
+    'Referer': 'https://www.google.com/'
+};
+
+// Function to search for all professors in a department at a university
+async function searchProfessorsByDepartment(universityNumber, departmentNumber, callback) {
+    const searchURL = `https://www.ratemyprofessors.com/search/professors/${universityNumber}?q=*&did=${departmentNumber}`;
+    console.log(`Fetching URL: ${searchURL}`);
+
+    try {
+        // Use simple HTTP request instead of browser automation
+        console.log('Using HTTP request approach...');
+
+        // Check if we can access RateMyProfessors at all
+        console.log('Testing RateMyProfessors accessibility...');
+
+        try {
+            // Quick test to see if the site is accessible
+            const testResponse = await axios.get('https://www.ratemyprofessors.com/', {
+                headers: {
+                    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
+                },
+                timeout: 5000
+            });
+
+            if (testResponse.status !== 200) {
+                throw new Error('RateMyProfessors is not accessible');
+            }
+
+            console.log('RateMyProfessors is accessible, proceeding with search...');
+
+            // Now try the actual search URL
+            const response = await axios.get(searchURL, {
+                headers,
+                timeout: 15000,
+                validateStatus: function (status) {
+                    return status < 500;
+                }
+            });
+
+            console.log('Search response status:', response.status);
+
+            // Parse the HTML response
+            const $ = cheerio.load(response.data);
+            console.log('Successfully loaded page content');
+
+            // Extract professor information directly from HTML
+            console.log('Step 2: Extracting professor information...');
+
+            const professors = [];
+
+            // First, let's see what HTML structure we have
+            console.log('HTML title:', $('title').text());
+            console.log('Body classes:', $('body').attr('class'));
+
+        // Look for professor cards or listings
+        const professorSelectors = [
+            '.ProfessorCard__StyledCard-s1nhvv-0',
+            '[class*="Professor"]',
+            '[class*="professor"]',
+            'a[href*="/professor/"]',
+            '.teacher',
+            '.professor',
+            '.card',
+            '.result',
+            '[data-testid*="professor"]'
+        ];
+
+        console.log('Searching for professors using selectors...');
+
+        for (const selector of professorSelectors) {
+            const elements = $(selector);
+            console.log(`Selector "${selector}" found ${elements.length} elements`);
+
+            elements.each((index, element) => {
+                try {
+                    const el = $(element);
+
+                    // Try to get professor name - be more flexible
+                    let name = '';
+
+                    // Try multiple ways to get the name
+                    const nameSelectors = ['h1', 'h2', 'h3', 'h4', 'h5', 'h6', '.name', '[class*="name"]', '.title', '.professor-name'];
+                    for (const nameSel of nameSelectors) {
+                        const nameEl = el.find(nameSel).first();
+                        if (nameEl.length > 0) {
+                            name = nameEl.text().trim();
+                            if (name && name.length > 2) break;
+                        }
+                    }
+
+                    // If no name found in child elements, use the element's text
+                    if (!name || name.length < 2) {
+                        name = el.text().trim();
+                    }
+
+                    // Clean up the name
+                    name = name.replace(/\s+/g, ' ').trim();
+
+                    if (!name || name === 'Unknown' || name.length < 2 || name.toLowerCase().includes('load more')) {
+                        return;
+                    }
+
+                    // Try to get profile URL
+                    let profURL = '';
+                    const linkElement = el.find('a[href*="/professor/"]').first();
+                    if (linkElement.length > 0) {
+                        profURL = linkElement.attr('href') || '';
+                    }
+
+                    // Try to get department
+                    let department = '';
+                    const deptSelectors = ['.department', '[class*="department"]', '.subject', '[class*="subject"]'];
+                    for (const deptSel of deptSelectors) {
+                        const deptEl = el.find(deptSel).first();
+                        if (deptEl.length > 0) {
+                            department = deptEl.text().trim();
+                            break;
+                        }
+                    }
+
+                    professors.push({
+                        name: name,
+                        profileURL: profURL.startsWith('http') ? profURL : 'https://www.ratemyprofessors.com' + profURL,
+                        department: department,
+                        university: '',
+                        numRatings: 0
+                    });
+
+                    console.log(`Found professor: "${name}" - URL: "${profURL}" - Dept: "${department}"`);
+                } catch (e) {
+                    console.error('Error parsing professor element:', e.message);
+                }
+            });
+
+            // If we found professors, break out of the selector loop
+            if (professors.length > 0) {
+                console.log(`Successfully found ${professors.length} professors with selector: ${selector}`);
+                break;
+            }
+        }
+
+        console.log(`Total professors found: ${professors.length}`);
+
+        // If no professors found, let's inspect the HTML structure
+        if (professors.length === 0) {
+            console.log('No professors found. Inspecting HTML structure...');
+
+            // Look for any links that might be professor profiles
+            $('a[href*="/professor/"]').each((index, element) => {
+                const href = $(element).attr('href');
+                const text = $(element).text().trim();
+                console.log(`Found professor link: "${text}" -> ${href}`);
+
+                if (text && text.length > 2 && !text.toLowerCase().includes('rate') && !text.toLowerCase().includes('professor')) {
+                    professors.push({
+                        name: text,
+                        profileURL: href.startsWith('http') ? href : 'https://www.ratemyprofessors.com' + href,
+                        department: '',
+                        university: '',
+                        numRatings: 0
+                    });
+                }
+            });
+        }
+
+        console.log(`Final total professors found: ${professors.length}`);
+        callback(null, professors);
+    } catch (error) {
+        console.error('Error in searchProfessorsByDepartment:', error.message);
+        if (error.response) {
+            console.error('Response status:', error.response.status);
+            if (error.response.status === 403 || error.response.status === 429) {
+                console.error('You have been blocked by RateMyProfessors. Try again later.');
+            }
+        }
+        callback(error, null);
+    }
+}
+
+// Function to find the number of ratings a professor has for a specific course (scraped from page source)
+async function getNumCourseRatings(profURL, courseCode) {
+    try {
+        // Fetch the page HTML
+        const { data: html } = await axios.get(profURL);
+
+        // Load HTML into cheerio
+        const $ = cheerio.load(html);
+
+        // Extract raw HTML text for searching
+        const pageText = $.html();
+
+        // Build regex to match courseName + courseCount pairs
+        const regex = new RegExp(
+            `"courseName":"${courseCode}"\\s*,\\s*"courseCount":(\\d+)`,
+            "i"
+        );
+
+        const match = pageText.match(regex);
+
+        // If found, return the count as a number
+        return match ? parseInt(match[1], 10) : 0;
+    } catch (err) {
+        console.error(`Error fetching or parsing ${profURL}:`, err.message);
+        return 0;
+    }
+}
+
+// Main function to find professors with ratings for a specific course
+async function findProfessorsForCourse(courseName, departmentNumber, universityNumber, callback) {
+    console.log(`\nSearching for professors with ratings for ${courseName} in department ${departmentNumber} at university ${universityNumber}`);
+    console.time('Total Course Search Time');
+    try {
+        // Step 1: Get all professors in the department
+        searchProfessorsByDepartment(universityNumber, departmentNumber, async (error, professors) => {
+            if (error) {
+                return callback(error, null);
+            }
+            
+            if (!professors || professors.length === 0) {
+                return callback(new Error('No professors found in the specified department'), null);
+            }
+            
+            console.log(`\nStep 2: Checking ${professors.length} professors for course ${courseName}...`);
+            
+            const professorsWithCourse = [];
+            let processedCount = 0;
+            
+            // Start timing the number of course ratings check
+            console.time('Check Course Ratings Time');
+
+            // Process professors sequentially to avoid overwhelming the server
+            for (const professor of professors) {
+                try {
+                    processedCount++;
+                    console.log(`Processing ${processedCount}/${professors.length}: ${professor.name}`);
+                    
+                    const numRatings = await getNumCourseRatings(professor.profileURL, courseName);
+                    
+                    if (numRatings > 0) {
+                        professorsWithCourse.push({
+                            name: professor.name,
+                            firstName: professor.firstName,
+                            lastName: professor.lastName,
+                            department: professor.department,
+                            university: professor.university,
+                            profileURL: professor.profileURL,
+                            numRatings: numRatings
+                        });
+                        console.log(`✓ ${professor.name} has ratings for ${courseName}`);
+                    }
+                    
+                } catch (error) {
+                    console.error(`Error processing professor ${professor.name}:`, error.message);
+                }
+            }
+            
+            console.log(`\nSearch complete! Found ${professorsWithCourse.length} professors with ratings for ${courseName}`);
+            console.timeEnd('Check Course Ratings Time');
+            console.timeEnd('Total Course Search Time');
+            callback(null, professorsWithCourse);
+        });
+        
+    } catch (error) {
+        console.error('Error in findProfessorsForCourse:', error.message);
+        callback(error, null);
+    }
+}
+
+module.exports = findProfessorsForCourse;
