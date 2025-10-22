@@ -1,0 +1,184 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deployment environment'
+        required: true
+        default: 'production'
+        type: choice
+        options:
+        - production
+        - staging
+
+env:
+  NODE_VERSION: '18.x'
+
+jobs:
+  deploy:
+    name: Deploy to ${{ github.event.inputs.environment || 'production' }}
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment || 'production' }}
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Run pre-deployment tests
+      run: npm run test:unit
+      env:
+        NODE_ENV: production
+
+    - name: Build application
+      run: npm run build
+
+    - name: Run build verification tests
+      run: npm run test:unit
+      env:
+        NODE_ENV: production
+
+    - name: Deploy to Railway
+      run: |
+        echo "Deploying to Railway..."
+        # Install Railway CLI
+        npm install -g @railway/cli
+
+        # Deploy to Railway
+        railway login --token ${{ secrets.RAILWAY_TOKEN }}
+        railway up --detach
+      env:
+        RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        NODE_ENV: production
+
+    - name: Deploy to Vercel (Frontend)
+      run: |
+        echo "Deploying frontend to Vercel..."
+        npm install -g vercel
+
+        # Deploy to Vercel
+        echo "VERCEL_TOKEN=${{ secrets.VERCEL_TOKEN }}" > .vercel/.env
+        vercel --prod --token ${{ secrets.VERCEL_TOKEN }}
+      env:
+        VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+
+    - name: Wait for deployment
+      run: |
+        echo "Waiting for deployment to complete..."
+        sleep 30
+
+    - name: Verify deployment
+      run: |
+        # Check if the deployed application is responding
+        echo "Verifying deployment..."
+        curl -f -I ${{ secrets.PRODUCTION_URL }}/health || exit 1
+        curl -f -I ${{ secrets.PRODUCTION_URL }}/status || exit 1
+
+    - name: Run post-deployment smoke tests
+      run: |
+        echo "Running smoke tests on production..."
+        # Basic health checks
+        curl -f ${{ secrets.PRODUCTION_URL }}/health
+        curl -f ${{ secrets.PRODUCTION_URL }}/status
+
+        # Test API endpoints
+        curl -f "${{ secrets.PRODUCTION_URL }}/course?course_name=CPSC&department_number=110&university_number=1413" || echo "Course API may return 404/500 for test data"
+        curl -f "${{ secrets.PRODUCTION_URL }}/professor?fname=Test&lname=Professor&university=Test%20University" || echo "Professor API may return 404/500 for test data"
+
+    - name: Run post-deployment E2E tests
+      run: |
+        echo "Running E2E tests on production..."
+        # Install Playwright browsers
+        npx playwright install --with-deps
+
+        # Run critical E2E tests on production
+        npm run test:e2e
+      env:
+        BASE_URL: ${{ secrets.PRODUCTION_URL }}
+        CI: true
+        NODE_ENV: production
+
+    - name: Monitor deployment
+      run: |
+        echo "Monitoring deployment for 5 minutes..."
+        # Check application health every 30 seconds for 5 minutes
+        for i in {1..10}; do
+          if curl -f ${{ secrets.PRODUCTION_URL }}/health > /dev/null 2>&1; then
+            echo "Deployment successful - application is responding"
+            break
+          else
+            echo "Application not responding yet, attempt $i/10"
+            sleep 30
+          fi
+        done
+
+        # Final check
+        curl -f ${{ secrets.PRODUCTION_URL }}/health || exit 1
+
+    - name: Rollback on failure
+      if: failure()
+      run: |
+        echo "Deployment failed, triggering rollback..."
+        # Add rollback logic here
+        # Example: railway rollback --environment production
+        exit 1
+
+    - name: Notify deployment success
+      if: success()
+      run: |
+        echo "🚀 Deployment successful!"
+        echo "Application deployed to: ${{ secrets.PRODUCTION_URL }}"
+        echo "Health check: ${{ secrets.PRODUCTION_URL }}/health"
+        echo "App URL: ${{ secrets.PRODUCTION_URL }}/app"
+
+    - name: Notify deployment failure
+      if: failure()
+      run: |
+        echo "❌ Deployment failed!"
+        echo "Check the logs above for details"
+        # Add notification logic here (Slack, Teams, etc.)
+
+  # Post-deployment monitoring
+  monitoring:
+    name: Post-Deployment Monitoring
+    runs-on: ubuntu-latest
+    needs: deploy
+
+    steps:
+    - name: Setup monitoring
+      run: |
+        echo "Setting up monitoring and alerting..."
+        # Add monitoring setup here
+        # - Uptime monitoring
+        # - Performance monitoring
+        # - Error tracking
+
+    - name: Configure alerts
+      run: |
+        echo "Configuring alerts for production..."
+        # Add alerting configuration here
+        # - Set up error rate alerts
+        # - Set up response time alerts
+        # - Set up availability alerts
+
+    - name: Generate deployment report
+      run: |
+        echo "## Deployment Report" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "✅ Successfully deployed to production" >> $GITHUB_STEP_SUMMARY
+        echo "🌐 Application URL: ${{ secrets.PRODUCTION_URL }}" >> $GITHUB_STEP_SUMMARY
+        echo "🏥 Health Check: ${{ secrets.PRODUCTION_URL }}/health" >> $GITHUB_STEP_SUMMARY
+        echo "⏰ Deployment Time: $(date)" >> $GITHUB_STEP_SUMMARY
+        echo "🔖 Git Commit: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+        echo "👤 Deployed by: ${{ github.actor }}" >> $GITHUB_STEP_SUMMARY

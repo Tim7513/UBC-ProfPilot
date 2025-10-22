@@ -1,0 +1,47 @@
+[
+  {
+    "id": 1,
+    "name": "Dr. Patrice Belleville",
+    "firstName": "Patrice",
+    "lastName": "Belleville",
+    "university": "University of British Columbia",
+    "department": "Computer Science",
+    "overall_quality": "4.2",
+    "difficulty": "3.8",
+    "would_take_again": "78%",
+    "numRatings": 45,
+    "profileURL": "https://www.ratemyprofessors.com/professor/12345",
+    "tags": ["caring", "accessible", "engaging", "challenging"],
+    "summary": "Dr. Belleville is a dedicated professor who makes complex concepts accessible. Students appreciate his engaging teaching style and willingness to help outside of class."
+  },
+  {
+    "id": 2,
+    "name": "Dr. John Smith",
+    "firstName": "John",
+    "lastName": "Smith",
+    "university": "University of British Columbia",
+    "department": "Computer Science",
+    "overall_quality": "4.7",
+    "difficulty": "2.5",
+    "would_take_again": "92%",
+    "numRatings": 67,
+    "profileURL": "https://www.ratemyprofessors.com/professor/67890",
+    "tags": ["easy_grader", "clear_lectures", "helpful", "organized"],
+    "summary": "Professor Smith is highly regarded for his clear explanations and fair grading. Students find his courses manageable and his teaching methods effective."
+  },
+  {
+    "id": 3,
+    "name": "Dr. Sarah Johnson",
+    "firstName": "Sarah",
+    "lastName": "Johnson",
+    "university": "University of British Columbia",
+    "department": "Computer Science",
+    "overall_quality": "3.9",
+    "difficulty": "4.2",
+    "would_take_again": "65%",
+    "numRatings": 34,
+    "profileURL": "https://www.ratemyprofessors.com/professor/54321",
+    "tags": ["challenging", "brilliant", "demanding", "rewarding"],
+    "summary": "Dr. Johnson is known for her rigorous approach and deep knowledge. While challenging, students who put in the effort find her courses extremely rewarding."
+  }
+]

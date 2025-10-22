@@ -1,0 +1,61 @@
+[
+  {
+    "courseCode": "CPSC 110",
+    "courseName": "Computation, Programs, and Programming",
+    "department": "Computer Science",
+    "universityId": "1413",
+    "universityName": "University of British Columbia",
+    "professors": [
+      {
+        "name": "Dr. Patrice Belleville",
+        "firstName": "Patrice",
+        "lastName": "Belleville",
+        "overall_quality": "4.2",
+        "difficulty": "3.8",
+        "numRatings": 45
+      },
+      {
+        "name": "Dr. John Smith",
+        "firstName": "John",
+        "lastName": "Smith",
+        "overall_quality": "4.7",
+        "difficulty": "2.5",
+        "numRatings": 67
+      }
+    ],
+    "totalProfessors": 2,
+    "averageRating": 4.45,
+    "averageDifficulty": 3.15
+  },
+  {
+    "courseCode": "CPSC 210",
+    "courseName": "Software Construction",
+    "department": "Computer Science",
+    "universityId": "1413",
+    "universityName": "University of British Columbia",
+    "professors": [
+      {
+        "name": "Dr. Sarah Johnson",
+        "firstName": "Sarah",
+        "lastName": "Johnson",
+        "overall_quality": "3.9",
+        "difficulty": "4.2",
+        "numRatings": 34
+      }
+    ],
+    "totalProfessors": 1,
+    "averageRating": 3.9,
+    "averageDifficulty": 4.2
+  },
+  {
+    "courseCode": "MATH 100",
+    "courseName": "Differential Calculus",
+    "department": "Mathematics",
+    "universityId": "1413",
+    "universityName": "University of British Columbia",
+    "professors": [],
+    "totalProfessors": 0,
+    "averageRating": 0,
+    "averageDifficulty": 0
+  }
+]

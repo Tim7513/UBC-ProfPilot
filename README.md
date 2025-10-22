@@ -33,6 +33,58 @@ Prof Pilot is a full-stack web application that empowers UBC students to make in
 - **Railway** - Recommended deployment platform
 - **Heroku** - Alternative deployment option
 
+## 🧪 Testing
+
+Prof Pilot includes a comprehensive testing suite that aligns with enterprise QA standards:
+
+### Testing Framework
+
+- **🧪 Unit Tests**: Jest with React Testing Library for component testing
+- **🔗 Integration Tests**: API endpoint testing with Supertest
+- **🌐 End-to-End Tests**: Playwright for cross-browser testing (PC, Mac, Chromebook)
+- **📱 Mobile Testing**: Responsive design testing across devices
+- **⚡ Performance Tests**: Artillery for stress and load testing
+- **🔒 Security Tests**: Input validation, XSS, SQL injection prevention
+- **🚀 CI/CD Pipeline**: GitHub Actions with automated testing and deployment
+
+### Test Coverage
+
+```bash
+# Run all tests
+npm test
+
+# Run specific test types
+npm run test:unit        # Unit tests with coverage
+npm run test:api         # API endpoint tests
+npm run test:e2e         # End-to-end tests
+npm run test:mobile      # Mobile responsive tests
+npm run test:performance # Load and stress tests
+npm run test:security    # Security vulnerability tests
+
+# Watch mode for development
+npm run test:watch
+
+# Generate coverage reports
+npm run test:coverage
+```
+
+### Testing Features
+
+- **Cross-Platform Testing**: Tests run on Chromium, Firefox, Safari, and mobile browsers
+- **Security Testing**: Comprehensive vulnerability scanning and input validation
+- **Performance Monitoring**: Load testing with realistic user scenarios
+- **Accessibility Testing**: WCAG compliance and screen reader support
+- **Error Handling**: Graceful degradation and error recovery testing
+- **Mobile-First**: Responsive design testing across all device sizes
+
+### Code Quality Gates
+
+- **Linting**: ESLint with strict rules
+- **Security Scanning**: Snyk and npm audit integration
+- **Dependency Management**: Automated vulnerability detection
+- **Code Coverage**: Minimum 70% coverage threshold
+- **Performance Budgets**: Response time and resource usage limits
+
 ## 📋 Usage Examples
 
 ### Search by Course
@@ -72,16 +124,40 @@ The application is fully responsive and optimized for mobile devices:
 
 1. Fork the repository
 2. Create a feature branch: `git checkout -b feature/amazing-feature`
-3. Commit your changes: `git commit -m 'Add amazing feature'`
-4. Push to the branch: `git push origin feature/amazing-feature`
-5. Open a Pull Request
+3. **Write tests first** (TDD approach recommended)
+4. Implement your feature
+5. **Run the full test suite**: `npm test`
+6. Commit your changes: `git commit -m 'Add amazing feature'`
+7. Push to the branch: `git push origin feature/amazing-feature`
+8. Open a Pull Request
 
 ### Development Guidelines
 
-- Follow the existing code style and structure
-- Write clear, descriptive commit messages
-- Test your changes thoroughly
-- Update documentation for new features
+- **🧪 Testing First**: Write tests before implementing features
+- **📝 Code Style**: Follow ESLint rules and existing patterns
+- **🔒 Security**: Consider security implications of changes
+- **📱 Mobile-First**: Ensure responsive design works on all devices
+- **⚡ Performance**: Test performance impact of changes
+- **♿ Accessibility**: Maintain WCAG AA compliance
+- **📚 Documentation**: Update README and guides for new features
+
+### Testing Requirements
+
+All contributions must include:
+
+- **Unit tests** for new components/utilities (70%+ coverage)
+- **Integration tests** for API changes
+- **E2E tests** for user-facing features
+- **Security tests** for input handling
+- **Mobile tests** for responsive features
+
+Run tests before submitting:
+```bash
+npm run test:unit     # Unit tests with coverage
+npm run test:api      # API tests
+npm run test:e2e      # E2E tests
+npm run test:security # Security tests
+```
 
 ## 📊 Performance
 

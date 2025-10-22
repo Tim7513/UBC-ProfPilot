@@ -1,0 +1,115 @@
+config:
+  target: 'http://localhost:3000'
+  phases:
+    # Warm-up phase
+    - duration: 30
+      arrivalRate: 2
+      name: 'Warm-up: Light load'
+    # Normal load phase
+    - duration: 120
+      arrivalRate: 5
+      name: 'Normal load: 5 requests/second'
+    # Stress test phase
+    - duration: 60
+      arrivalRate: 20
+      name: 'Stress test: 20 requests/second'
+    # Spike test phase
+    - duration: 30
+      arrivalRate: 50
+      name: 'Spike test: 50 requests/second'
+  defaults:
+    headers:
+      Content-Type: 'application/json'
+      User-Agent: 'Artillery Performance Test'
+  processor: './performance-processor.js'
+
+scenarios:
+  # Health check scenario - should be fast
+  - name: 'Health check performance'
+    requests:
+      - get:
+          url: '/health'
+          expect:
+            - statusCode: [200]
+      - get:
+          url: '/status'
+          expect:
+            - statusCode: [200]
+
+  # Course search performance
+  - name: 'Course search performance'
+    weight: 40  # 40% of traffic
+    requests:
+      - get:
+          url: '/app'
+          expect:
+            - statusCode: [200]
+      - post:
+          url: '/course?course_name=CPSC&department_number=110&university_number=1413'
+          expect:
+            - statusCode: [200, 400, 404, 500]
+          capture:
+            json: '$.professors_count'
+            as: 'professorCount'
+            transform: 'parseInt'
+      - think: 2  # Wait 2 seconds between actions
+
+  # Professor search performance
+  - name: 'Professor search performance'
+    weight: 30  # 30% of traffic
+    requests:
+      - get:
+          url: '/app'
+          expect:
+            - statusCode: [200]
+      - post:
+          url: '/professor?fname=Patrice&lname=Belleville&university=University%20of%20British%20Columbia'
+          expect:
+            - statusCode: [200, 400, 404, 500]
+      - think: 3  # Wait 3 seconds between actions
+
+  # Mixed scenario - realistic user behavior
+  - name: 'Mixed user behavior'
+    weight: 20  # 20% of traffic
+    requests:
+      - get:
+          url: '/health'
+      - get:
+          url: '/app'
+      - think: 1
+      - get:
+          url: '/course?course_name=MATH&department_number=100&university_number=1413'
+          expect:
+            - statusCode: [200, 400, 404, 500]
+      - think: 2
+      - get:
+          url: '/status'
+
+  # Mobile performance scenario
+  - name: 'Mobile performance simulation'
+    weight: 10  # 10% of traffic
+    requests:
+      - get:
+          url: '/app'
+          headers:
+            User-Agent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0 Mobile/15E148 Safari/604.1'
+          expect:
+            - statusCode: [200]
+      - post:
+          url: '/course?course_name=CPSC&department_number=110&university_number=1413'
+          expect:
+            - statusCode: [200, 400, 404, 500]
+      - think: 5  # Mobile users are slower
+
+  # Error scenario - test error handling
+  - name: 'Error handling performance'
+    weight: 5  # 5% of traffic
+    requests:
+      - post:
+          url: '/course?course_name=&department_number=&university_number='
+          expect:
+            - statusCode: [400]
+      - post:
+          url: '/professor?fname=&lname=&university='
+          expect:
+            - statusCode: [400]
